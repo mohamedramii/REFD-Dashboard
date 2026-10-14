@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+/* ألوان هوية رفد مأخوذة من اللوجو: البنفسجي الأساسي والسماوي */
+:root {
+  --refd-purple: #741b8d;
+  --refd-purple-600: #8b2fa8;
+  --refd-purple-300: #c58ad8;
+  --refd-purple-100: #f3e6f8;
+  --refd-purple-50: #faf5fc;
+  --refd-cyan: #0bc8f2;
+  --refd-cyan-600: #0aa6c9;
+  --refd-cyan-100: #dcf6fd;
+  --ink: #2a1033;
+  --muted: #74627c;
+  --line: #ebdff1;
+  --surface: #ffffff;
+  --bg: #f8f4fa;
+  --success: #1f9d6b;
+  --warning: #e39a1e;
+  --danger: #d6455d;
+}
+
+@theme inline {
+  --color-refd-purple: var(--refd-purple);
+  --color-refd-purple-600: var(--refd-purple-600);
+  --color-refd-purple-300: var(--refd-purple-300);
+  --color-refd-purple-100: var(--refd-purple-100);
+  --color-refd-purple-50: var(--refd-purple-50);
+  --color-refd-cyan: var(--refd-cyan);
+  --color-refd-cyan-600: var(--refd-cyan-600);
+  --color-refd-cyan-100: var(--refd-cyan-100);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+  --color-bg: var(--bg);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-arabic);
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-arabic), system-ui, sans-serif;
+}
+
+/* الخلفية: دواير خفيفة بتلمّح لشكل اللوجو */
+.refd-backdrop {
+  background:
+    radial-gradient(circle at 92% -10%, rgba(11, 200, 242, 0.16) 0, transparent 32%),
+    radial-gradient(circle at -5% 20%, rgba(116, 27, 141, 0.10) 0, transparent 38%),
+    var(--bg);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 1px 2px rgba(42, 16, 51, 0.04), 0 8px 24px -12px rgba(116, 27, 141, 0.12);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--refd-purple-300);
+  border-radius: 999px;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: currentColor;
+  animation: pulse-ring 1.6s ease-out infinite;
+}
+
+/* ---------------- تقرير الطباعة ---------------- */
+
+/* صفحات A4. الغلاف من غير هوامش، وباقي الصفحات فيها مساحة لترقيم الصفحات */
+@page {
+  size: A4 portrait;
+  margin: 10mm 0 12mm 0;
+  @bottom-center {
+    content: "رفد · تقرير متابعة الفحوصات  —  صفحة " counter(page) " من " counter(pages);
+    font-family: "IBM Plex Sans Arabic", sans-serif;
+    font-size: 8pt;
+    color: #74627c;
+  }
+}
+/* الغلاف دايمًا أول ورقة، فبنشيل هوامشه بـ :first.
+   (الـ named page كانت بتعمل فاصل صفحات قبل الغلاف وتطلع ورقة فاضية في الأول) */
+@page :first {
+  margin: 0;
+  @bottom-center { content: none; }
+}
+
+.report-root {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.sheet {
+  width: 210mm;
+  min-height: 275mm;
+  margin: 0 auto 10mm;
+  padding: 10mm 12mm 8mm;
+  background: #fff;
+  box-shadow: 0 10px 40px -12px rgba(42, 16, 51, 0.25);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.sheet.cover {
+  min-height: 297mm;
+  height: 297mm;
+  padding: 0;
+}
+/* صفحة الجدول بتتمد على أكتر من ورقة، فمينفعش تتقص */
+.sheet.flow {
+  min-height: 0;
+  overflow: visible;
+}
+.avoid-break {
+  break-inside: avoid;
+}
+
+.report-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  break-inside: avoid;
+}
+
+.report-table thead {
+  display: table-header-group;
+}
+.report-table tr {
+  break-inside: avoid;
+}
+
+@media print {
+  html,
+  body,
+  .refd-backdrop {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .report-root {
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+  .sheet {
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+    break-after: page;
+  }
+  .sheet:last-child {
+    break-after: auto;
+  }
+}

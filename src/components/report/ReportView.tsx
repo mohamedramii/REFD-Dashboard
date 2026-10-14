@@ -1,0 +1,492 @@
+"use client";
+
+import Image from "next/image";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  applyFamilyFilters,
+  childKpis,
+  completeness,
+  familyKpis,
+  filtersFromQuery,
+  formatDate,
+  isDone,
+  shortService,
+} from "@/lib/analytics";
+import { buildInsights } from "@/lib/insights";
+import { Chart } from "../charts/Chart";
+import { buildChildCharts, buildFamilyCharts } from "../charts/build";
+import { gauge, horizontalBar } from "../charts/options";
+import { Icons } from "../icons";
+import { useDashboardData } from "../useDashboardData";
+
+const fmtLong = (iso: string) =>
+  new Intl.DateTimeFormat("ar-EG-u-nu-latn", { dateStyle: "long", timeZone: "UTC" }).format(new Date(iso));
+
+const maskName = (n: string) => (n ? `${n[0]}•••` : "—");
+
+export function ReportView() {
+  const params = useSearchParams();
+  const filters = useMemo(() => filtersFromQuery(params), [params]);
+  // التقرير لقطة ثابتة: بيتحمّل مرة واحدة من غير تحديث تلقائي
+  const { data } = useDashboardData(false);
+
+  const [hideNames, setHideNames] = useState(false);
+  const [withRecords, setWithRecords] = useState(true);
+  const [withQuality, setWithQuality] = useState(true);
+  const [ready, setReady] = useState(false);
+
+  // مهلة صغيرة بعد وصول البيانات، عشان ECharts يخلص رسم كل الرسوم قبل الطباعة
+  useEffect(() => {
+    if (!data) return;
+    const t = setTimeout(() => setReady(true), 1200);
+    return () => clearTimeout(t);
+  }, [data]);
+
+  const refDate = data?.fetchedAt.slice(0, 10) ?? "";
+  const family = useMemo(() => applyFamilyFilters(data?.family ?? [], filters), [data, filters]);
+  const children = useMemo(() => data?.children ?? [], [data]);
+  const fk = useMemo(() => familyKpis(family), [family]);
+  const ck = useMemo(() => childKpis(children), [children]);
+  const charts = useMemo(() => buildFamilyCharts(family, refDate), [family, refDate]);
+  const kids = useMemo(() => buildChildCharts(children, refDate), [children, refDate]);
+  const insights = useMemo(() => buildInsights(family, children, data?.issues ?? []), [family, children, data]);
+  const quality = useMemo(
+    () =>
+      completeness(family, [
+        { key: "requestNo", label: "رقم الطلب" },
+        { key: "birthDate", label: "تاريخ الميلاد" },
+        { key: "city", label: "المدينة" },
+        { key: "district", label: "الحي" },
+        { key: "result", label: "النتيجة" },
+        { key: "labDate", label: "تاريخ الفحوصات" },
+        { key: "resultDate", label: "تاريخ النتيجة" },
+      ]),
+    [family],
+  );
+
+  const period = useMemo(() => {
+    const dates = family.map((r) => r.labDate).filter((d): d is string => Boolean(d)).sort();
+    return dates.length ? `من ${formatDate(dates[0])} إلى ${formatDate(dates[dates.length - 1])}` : "—";
+  }, [family]);
+
+  const filterText = [
+    filters.cities.length && `المدينة: ${filters.cities.join("، ")}`,
+    filters.services.length && `الخدمة: ${filters.services.join("، ")}`,
+    filters.statuses.length && `الحالة: ${filters.statuses.join("، ")}`,
+    filters.results.length && `النتيجة: ${filters.results.join("، ")}`,
+    (filters.from || filters.to) && `الفترة: ${filters.from || "…"} → ${filters.to || "…"}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (!data) {
+    return <div className="refd-backdrop grid min-h-screen place-items-center text-sm text-muted">جاري تحميل البيانات…</div>;
+  }
+
+  const issued = fmtLong(data.fetchedAt);
+  // رقم القسم في هيدر كل صفحة (جودة البيانات اختيارية فبتأثر على رقم السجلات)
+  const recordsNo = withQuality ? 6 : 5;
+
+  return (
+    <div className="report-root refd-backdrop min-h-screen pb-10">
+      {/* ---------- شريط التحكم (مش بيتطبع) ---------- */}
+      <div className="no-print sticky top-0 z-40 mb-8 border-b border-line bg-white/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-4 py-3">
+          <div className="flex-1">
+            <p className="text-sm font-bold text-ink">معاينة التقرير</p>
+            <p className="text-[11px] text-muted">من نافذة الطباعة اختار «Save as PDF»، وفعّل «Background graphics»</p>
+          </div>
+          <Toggle checked={hideNames} onChange={setHideNames}>إخفاء الأسماء</Toggle>
+          <Toggle checked={withQuality} onChange={setWithQuality}>جودة البيانات</Toggle>
+          <Toggle checked={withRecords} onChange={setWithRecords}>جدول السجلات</Toggle>
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => window.print()}
+            className="flex h-10 items-center gap-2 rounded-xl bg-refd-purple px-5 text-sm font-semibold text-white shadow-lg shadow-refd-purple/25 transition hover:bg-refd-purple-600 disabled:opacity-60"
+          >
+            <Icons.printer />
+            {ready ? "طباعة / حفظ PDF" : "جاري التجهيز…"}
+          </button>
+        </div>
+      </div>
+
+      {/* ---------- الغلاف ---------- */}
+      <section className="sheet cover">
+        <div className="relative h-[168mm] overflow-hidden bg-gradient-to-br from-[#8B2FA8] via-refd-purple to-[#3E0D4D] px-[16mm] pt-[18mm] text-white">
+          <span className="absolute -top-[30mm] -left-[26mm] size-[105mm] rounded-full border-[13mm] border-refd-cyan/90" />
+          <span className="absolute top-[70mm] -left-[40mm] size-[120mm] rounded-full border-[2px] border-white/15" />
+          <span className="absolute -bottom-[50mm] -right-[30mm] size-[110mm] rounded-full bg-white/[0.06]" />
+          <span className="inline-flex rounded-full bg-white/15 px-4 py-1.5 text-[11pt] font-medium backdrop-blur">تقرير دوري</span>
+          <h1 className="mt-[14mm] text-[34pt] leading-[1.15] font-bold">
+            تقرير متابعة
+            <br />
+            الفحوصات
+          </h1>
+          <p className="mt-[6mm] max-w-[120mm] text-[12pt] leading-relaxed text-white/80">
+            التحقق الصحي للأسر، وفحص الأطفال قبل الاستلام، والفحص النفسي — ملخص المؤشرات والتحليلات وجودة البيانات.
+          </p>
+          <div className="absolute bottom-[14mm] right-[16mm] flex items-baseline gap-3 text-white/90">
+            <span className="text-[10pt] text-white/60">تاريخ الإصدار</span>
+            <span className="text-[13pt] font-semibold">{issued}</span>
+          </div>
+        </div>
+
+        <div className="relative px-[16mm]">
+          <div className="-mt-[22mm] flex items-center justify-between rounded-[22px] bg-white p-[7mm] shadow-[0_16px_40px_-16px_rgba(42,16,51,.35)]">
+            <Image src="/refd-logo.png" alt="رفد" width={1213} height={646} className="h-[24mm] w-auto" priority />
+            <div className="grid grid-cols-2 gap-x-[10mm] gap-y-[3mm] text-[9.5pt]">
+              <Meta label="الفترة المغطاة" value={period} />
+              <Meta label="مصدر البيانات" value={data.source === "google" ? "Google Sheets (مباشر)" : "بيانات تجريبية"} />
+              <Meta label="عدد السجلات" value={`${family.length + children.length + data.psych.length} سجل`} />
+              <Meta label="الفلاتر" value={filterText || "كل البيانات"} />
+            </div>
+          </div>
+
+          <div className="mt-[9mm] grid grid-cols-4 gap-[4mm]">
+            <BigStat value={fk.total} label="فحص أسري" />
+            <BigStat value={`${fk.completion}%`} label="نسبة الإنجاز" />
+            <BigStat value={`${fk.suitableRate}%`} label="نتائج مناسبة" />
+            <BigStat value={ck.total} label="فحص أطفال" accent />
+          </div>
+
+          <div className="mt-[10mm] flex items-center justify-between border-t border-line pt-[4mm] text-[8.5pt] text-muted">
+            <span>سري — للاستخدام الداخلي فقط</span>
+            <span className="h-[3px] w-[40mm] rounded-full bg-gradient-to-l from-refd-cyan to-refd-purple" />
+            <span>رفد · REFD</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- الملخص التنفيذي ---------- */}
+      <Sheet n={1} title="الملخص التنفيذي" subtitle="أهم المؤشرات والملاحظات">
+        <div className="grid grid-cols-4 gap-[3mm]">
+          <Kpi label="إجمالي الفحوصات" value={fk.total} hint={`${fk.cities} مدن`} />
+          <Kpi label="عدد الأسر" value={fk.families} hint={`متوسط ${fk.avgMembers} فرد`} />
+          <Kpi label="تم رفع التقارير" value={fk.done} hint={`${fk.pending} قيد التنفيذ`} />
+          <Kpi label="متوسط زمن النتيجة" value={fk.avgTurnaround ?? "—"} hint="يوم" />
+          <Kpi label="نتائج مناسبة" value={fk.suitable} hint={`${fk.unsuitable} غير مناسب`} tone="good" />
+          <Kpi label="فحص الأطفال" value={ck.total} hint={`${ck.hospitals} مستشفى`} />
+          <Kpi label="أطفال سليمين" value={`${ck.healthyRate}%`} hint={`${ck.healthy} طفل`} tone="good" />
+          <Kpi label="الفحص النفسي" value={data.psych.length} hint={`${data.psych.filter((p) => isDone(p.status)).length} مكتمل`} />
+        </div>
+
+        <div className="mt-[4mm] grid grid-cols-3 gap-[3mm]">
+          <Block title="نسبة الإنجاز">
+            <Chart still option={gauge(fk.completion, `${fk.done} من ${fk.total}`)} height={150} />
+          </Block>
+          <Block title="نسبة المناسب">
+            <Chart still option={gauge(fk.suitableRate, `${fk.suitable} حالة`, "#0BC8F2")} height={150} />
+          </Block>
+          <Block title="الأطفال السليمين">
+            <Chart still option={gauge(ck.healthyRate, `${ck.healthy} طفل`, "#1F9D6B")} height={150} />
+          </Block>
+        </div>
+
+        <div className="mt-[4mm] grid grid-cols-5 gap-[3mm]">
+          <div className="report-card col-span-3">
+            <h3 className="mb-2 text-[11pt] font-bold text-ink">قراءة سريعة في الأرقام</h3>
+            <ul className="space-y-[2.2mm]">
+              {insights.map((i, idx) => (
+                <li key={idx} className="flex gap-2 text-[9.5pt] leading-relaxed text-ink">
+                  <span
+                    className={`mt-[1.6mm] size-[2.4mm] shrink-0 rounded-full ${
+                      i.tone === "good" ? "bg-success" : i.tone === "warn" ? "bg-warning" : "bg-refd-cyan"
+                    }`}
+                  />
+                  {i.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Block title="مقارنة المدن" className="col-span-2">
+            <Chart still option={charts.radar} height={250} />
+          </Block>
+        </div>
+      </Sheet>
+
+      {/* ---------- التوزيع ---------- */}
+      <Sheet n={2} title="توزيع الفحوصات" subtitle="حسب المدينة والحي ونوع الخدمة">
+        <Block title="الفحوصات حسب المدينة ونوع الخدمة">
+          <Chart still option={charts.byCityStack} height={235} />
+        </Block>
+        <div className="mt-[3mm] grid grid-cols-2 gap-[3mm]">
+          <Block title="توزيع الخدمات">
+            <Chart still option={charts.services} height={215} />
+          </Block>
+          <Block title="توزيع النتائج">
+            <Chart still option={charts.results} height={215} />
+          </Block>
+        </div>
+        <div className="mt-[3mm] grid grid-cols-2 gap-[3mm]">
+          <Block title="المدينة × نوع الخدمة">
+            <Chart still option={charts.heat} height={250} />
+          </Block>
+          <Block title="المدن والأحياء">
+            <Chart still option={charts.tree} height={250} />
+          </Block>
+        </div>
+      </Sheet>
+
+      {/* ---------- المسار والزمن ---------- */}
+      <Sheet n={3} title="مسار الحالات والزمن" subtitle="العلاقة بين المدينة والخدمة والنتيجة، وسرعة الإنجاز">
+        <Block title="مسار الحالات: المدينة ← نوع الخدمة ← النتيجة">
+          <Chart still option={charts.sankey} height={290} />
+        </Block>
+        <div className="mt-[3mm]">
+          <Block title="حركة الفحوصات والنتائج يوميًا">
+            <Chart still option={charts.timeline} height={245} />
+          </Block>
+        </div>
+        <div className="mt-[3mm] grid grid-cols-3 gap-[3mm]">
+          <Block title="زمن صدور النتيجة">
+            <Chart still option={charts.tat} height={190} />
+          </Block>
+          <Block title="الفئات العمرية">
+            <Chart still option={charts.ages} height={190} />
+          </Block>
+          <Block title="النتائج حسب الخدمة">
+            <Chart still option={charts.resultByService} height={190} />
+          </Block>
+        </div>
+      </Sheet>
+
+      {/* ---------- الأطفال ---------- */}
+      <Sheet n={4} title="فحص الأطفال قبل الاستلام" subtitle={`${ck.total} طفل في ${ck.hospitals} مستشفى`}>
+        <div className="grid grid-cols-4 gap-[3mm]">
+          <Kpi label="إجمالي الأطفال" value={ck.total} />
+          <Kpi label="سليم" value={ck.healthy} tone="good" />
+          <Kpi label="غير سليم" value={ck.unhealthy} tone={ck.unhealthy ? "bad" : undefined} />
+          <Kpi label="عليها ملاحظات" value={ck.withNotes} />
+        </div>
+        <div className="mt-[3mm] grid grid-cols-5 gap-[3mm]">
+          <Block title="نتائج الفحص" className="col-span-2">
+            <Chart still option={kids.results} height={195} />
+          </Block>
+          <Block title="عمر الطفل حاليًا (بالشهور)" className="col-span-3">
+            <Chart still option={kids.ages} height={195} />
+          </Block>
+        </div>
+        <div className="mt-[3mm]">
+          <Block title="الحالات حسب المستشفى">
+            <Chart still option={kids.hospitals} height={Math.min(215, Math.max(150, ck.hospitals * 23))} />
+          </Block>
+        </div>
+        {ck.withNotes > 0 && (
+          <div className="report-card mt-[3mm]">
+            <h3 className="mb-2 text-[10.5pt] font-bold">ملاحظات طبية تحتاج متابعة</h3>
+            <div className="grid grid-cols-2 gap-[2.5mm]">
+              {children
+                .filter((c) => c.notes)
+                .map((c) => (
+                  <div key={c.id} className="rounded-xl bg-refd-purple-50 px-3 py-2">
+                    <div className="flex justify-between text-[9pt] font-semibold">
+                      <span>{hideNames ? maskName(c.name) : c.name}</span>
+                      <span className={c.result === "سليم" ? "text-success" : "text-danger"}>{c.result || "—"}</span>
+                    </div>
+                    <p className="text-[8.5pt] text-muted">{c.notes}</p>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+        {data.psych.length > 0 && (
+          <div className="report-card mt-[3mm]">
+            <h3 className="mb-2 text-[10.5pt] font-bold">الفحص النفسي</h3>
+            <div className="grid grid-cols-3 gap-[2.5mm] text-[8.5pt]">
+              {data.psych.map((p) => (
+                <div key={p.id} className="rounded-xl border border-line px-3 py-2">
+                  <p className="font-semibold">{p.caseType || p.service}</p>
+                  <p className="text-muted">
+                    {p.city || "—"} · العمر {p.age ?? "—"} · {p.status || "—"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Sheet>
+
+      {/* ---------- جودة البيانات ---------- */}
+      {withQuality && (
+        <Sheet n={5} title="جودة البيانات" subtitle="نسبة اكتمال الحقول، والملاحظات برقم الصف في الشيت" flow>
+          <div className="grid grid-cols-5 gap-[3mm]">
+            <Block title="نسبة اكتمال كل حقل (%)" className="col-span-2">
+              <Chart still option={horizontalBar(quality)} height={230} />
+            </Block>
+            <div className="report-card col-span-3">
+              <h3 className="mb-2 text-[10.5pt] font-bold">ملخص</h3>
+              <div className="grid grid-cols-2 gap-[2.5mm]">
+                <Kpi label="أخطاء" value={data.issues.filter((i) => i.level === "error").length} tone="bad" />
+                <Kpi label="تنبيهات" value={data.issues.filter((i) => i.level === "warning").length} />
+              </div>
+              <p className="mt-3 text-[8.5pt] leading-relaxed text-muted">
+                الأخطاء: تواريخ مش مفهومة أو مكتوبة بالهجري. التنبيهات: بيانات ناقصة، أو تاريخ نتيجة قبل تاريخ الفحص، أو أرقام طلبات مكررة أو بصيغة غير معتادة.
+              </p>
+            </div>
+          </div>
+          <table className="report-table mt-[4mm] w-full text-[8.5pt]">
+            <thead>
+              <tr className="bg-refd-purple text-white">
+                <th className="rounded-tr-lg px-2 py-1.5 text-start font-medium">النوع</th>
+                <th className="px-2 py-1.5 text-start font-medium">الشيت</th>
+                <th className="px-2 py-1.5 text-start font-medium">الصف</th>
+                <th className="px-2 py-1.5 text-start font-medium">الحقل</th>
+                <th className="rounded-tl-lg px-2 py-1.5 text-start font-medium">الملاحظة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.issues.map((i, idx) => (
+                <tr key={idx} className="border-b border-line odd:bg-refd-purple-50/50">
+                  <td className={`px-2 py-1.5 font-semibold ${i.level === "error" ? "text-danger" : "text-warning"}`}>
+                    {i.level === "error" ? "خطأ" : "تنبيه"}
+                  </td>
+                  <td className="px-2 py-1.5 text-muted">{i.sheet}</td>
+                  <td className="px-2 py-1.5 tabular-nums">{i.row || "—"}</td>
+                  <td className="px-2 py-1.5">{i.field}</td>
+                  <td className="px-2 py-1.5">{i.message}</td>
+                </tr>
+              ))}
+              {data.issues.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-success">لا توجد ملاحظات على البيانات</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </Sheet>
+      )}
+
+      {/* ---------- السجلات ---------- */}
+      {withRecords && (
+        <Sheet n={recordsNo} title="سجل الفحوصات" subtitle={`${family.length} فحص أسري${hideNames ? " · الأسماء مخفية" : ""}`} flow>
+          <table className="report-table w-full text-[8.3pt]">
+            <thead>
+              <tr className="bg-refd-purple text-white">
+                {["الأسرة", "الاسم", "الخدمة", "المدينة", "الحي", "الحالة", "النتيجة", "الفحوصات", "النتيجة في"].map((h, i, arr) => (
+                  <th
+                    key={h + i}
+                    className={`px-2 py-1.5 text-start font-medium ${i === 0 ? "rounded-tr-lg" : ""} ${i === arr.length - 1 ? "rounded-tl-lg" : ""}`}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {family.map((r) => (
+                <tr key={r.id} className="border-b border-line odd:bg-refd-purple-50/50">
+                  <td className="px-2 py-1.5 text-center font-bold text-refd-purple">{r.family ?? "—"}</td>
+                  <td className="px-2 py-1.5 font-medium">{hideNames ? maskName(r.name) : r.name}</td>
+                  <td className="px-2 py-1.5">{shortService(r.service)}</td>
+                  <td className="px-2 py-1.5">{r.city || "—"}</td>
+                  <td className="px-2 py-1.5 text-muted">{r.district || "—"}</td>
+                  <td className="px-2 py-1.5">{isDone(r.status) ? "مكتمل" : r.status || "—"}</td>
+                  <td
+                    className={`px-2 py-1.5 font-semibold ${
+                      r.result === "مناسب" ? "text-success" : r.result.startsWith("غير") ? "text-danger" : "text-warning"
+                    }`}
+                  >
+                    {r.result || "بانتظار"}
+                  </td>
+                  <td className="px-2 py-1.5 tabular-nums">{formatDate(r.labDate)}</td>
+                  <td
+                    className={`px-2 py-1.5 tabular-nums ${
+                      r.labDate && r.resultDate && r.resultDate < r.labDate ? "font-bold text-danger" : ""
+                    }`}
+                  >
+                    {formatDate(r.resultDate)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-[4mm] text-[8pt] text-muted">التواريخ باللون الأحمر: تاريخ النتيجة قبل تاريخ الفحص المخبري، ومحتاجة مراجعة في الشيت.</p>
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
+function Sheet({
+  n,
+  title,
+  subtitle,
+  children,
+  flow = false,
+}: {
+  n: number;
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  flow?: boolean;
+}) {
+  return (
+    <section className={`sheet ${flow ? "flow" : ""}`}>
+      <span className="absolute inset-x-0 top-0 h-[2.2mm] bg-gradient-to-l from-refd-cyan via-refd-purple-300 to-refd-purple" />
+      <header className="mb-[5mm] flex items-center justify-between border-b border-line pb-[3mm]">
+        <div className="flex items-center gap-3">
+          <span className="grid size-[10mm] place-items-center rounded-[3.5mm] bg-refd-purple text-[13pt] font-bold text-white">
+            {String(n).padStart(2, "0")}
+          </span>
+          <div>
+            <h2 className="text-[15pt] leading-tight font-bold text-ink">{title}</h2>
+            {subtitle && <p className="text-[8.5pt] text-muted">{subtitle}</p>}
+          </div>
+        </div>
+        <Image src="/refd-logo.png" alt="رفد" width={1213} height={646} className="h-[10mm] w-auto" />
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function Block({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={`report-card ${className}`}>
+      <h3 className="mb-1 text-[10pt] font-bold text-ink">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Kpi({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: string; tone?: "good" | "bad" }) {
+  return (
+    <div className="report-card relative overflow-hidden">
+      <span
+        className={`absolute inset-y-0 right-0 w-[1.3mm] ${tone === "good" ? "bg-success" : tone === "bad" ? "bg-danger" : "bg-refd-purple"}`}
+      />
+      <p className="text-[8pt] text-muted">{label}</p>
+      <p className="text-[18pt] leading-tight font-bold text-ink tabular-nums">{value}</p>
+      {hint && <p className="text-[7.5pt] text-muted">{hint}</p>}
+    </div>
+  );
+}
+
+function BigStat({ value, label, accent = false }: { value: ReactNode; label: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-[18px] px-[4mm] py-[4mm] ${accent ? "bg-refd-cyan-100" : "bg-refd-purple-50"}`}>
+      <p className={`text-[24pt] leading-none font-bold tabular-nums ${accent ? "text-refd-cyan-600" : "text-refd-purple"}`}>{value}</p>
+      <p className="mt-[2mm] text-[9pt] text-muted">{label}</p>
+    </div>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[8pt] text-muted">{label}</p>
+      <p className="max-w-[55mm] truncate font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs font-medium text-ink">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-[var(--refd-purple)]" />
+      {children}
+    </label>
+  );
+}
