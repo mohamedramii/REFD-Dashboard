@@ -146,7 +146,8 @@ export function Dashboard() {
           </div>
         </div>
         <nav className="mx-auto flex max-w-[1500px] gap-1 overflow-x-auto px-4 md:px-8 scrollbar-thin">
-          {TABS.map((t) => (
+          {/* Keep the other tabs implemented; only overview is currently visible. */}
+          {TABS.filter((t) => t.id === "overview").map((t) => (
             <button
               key={t.id}
               type="button"
