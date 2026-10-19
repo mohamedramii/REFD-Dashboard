@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Sans_Arabic } from "next/font/google";
+import { Readex_Pro } from "next/font/google";
 import "./globals.css";
 
-const arabic = IBM_Plex_Sans_Arabic({
+// Readex Pro: خط عربي حديث وأرقامه واضحة، مناسب للمؤشرات والرسوم
+const arabic = Readex_Pro({
   variable: "--font-arabic",
   subsets: ["arabic", "latin"],
   weight: ["300", "400", "500", "600", "700"],

@@ -42,9 +42,26 @@ export function filtersFromQuery(p: URLSearchParams): Filters {
   };
 }
 
-export const isDone =(status: string) => status.includes("تم");
-export const isSuitable = (result: string) => result === "مناسب";
+export const isDone = (status: string) => status.includes("تم");
 export const isHealthy = (result: string) => result === "سليم";
+
+export const PENDING_RESULT = "بانتظار النتيجة";
+export const RESULT_GROUPS = ["مناسب", "غير مناسب", "بحاجة لمتابعة", PENDING_RESULT] as const;
+export type ResultGroup = (typeof RESULT_GROUPS)[number];
+
+/**
+ * النتايج في الشيت أكتر من قيمتين ("مناسبة للتحفيز"، "لا يوصي بالتحفيز"، "بحاجة لجلسات دعم"...)
+ * فبنجمعها في 3 مجموعات ثابتة عشان المؤشرات والألوان ماتتغيرش مع كل قيمة جديدة.
+ */
+export function resultGroup(result: string): ResultGroup {
+  const r = result.trim();
+  if (!r) return PENDING_RESULT;
+  if (r.startsWith("غير") || r.startsWith("لا ")) return "غير مناسب";
+  if (r.startsWith("مناسب") || r === "سليم") return "مناسب";
+  return "بحاجة لمتابعة";
+}
+
+export const isSuitable = (result: string) => resultGroup(result) === "مناسب";
 
 /** "التحقق الصحي للأسرة ( الأم )" ← "الأم" */
 export function shortService(service: string): string {
@@ -59,14 +76,31 @@ export function label(value: string): string {
   return value || UNKNOWN;
 }
 
+/** الموعد المحجوز = الصف اللي فيه تاريخ نتيجة (حسب تعريف العميل)، والفلتر الزمني بيمشي عليه */
 export function applyFamilyFilters(rows: FamilyRecord[], f: Filters): FamilyRecord[] {
   return rows.filter((r) => {
     if (f.cities.length && !f.cities.includes(label(r.city))) return false;
     if (f.services.length && !f.services.includes(shortService(r.service))) return false;
     if (f.statuses.length && !f.statuses.includes(label(r.status))) return false;
-    if (f.results.length && !f.results.includes(label(r.result))) return false;
-    if (f.from && (!r.labDate || r.labDate < f.from)) return false;
-    if (f.to && (!r.labDate || r.labDate > f.to)) return false;
+    if (f.results.length && !f.results.includes(resultGroup(r.result))) return false;
+    if (f.from && (!r.resultDate || r.resultDate < f.from)) return false;
+    if (f.to && (!r.resultDate || r.resultDate > f.to)) return false;
+    return true;
+  });
+}
+
+/** تاريخ الطفل المستخدم في فلتر الفترة: تاريخ النتيجة، ولو مش موجود تاريخ الاستلام */
+export const childDate = (c: ChildRecord) => c.resultDate ?? c.receivedDate ?? null;
+
+export function applyChildFilters(rows: ChildRecord[], f: Filters): ChildRecord[] {
+  return rows.filter((c) => {
+    if (f.cities.length && !f.cities.includes(label(c.city))) return false;
+    if (f.services.length && !f.services.includes(label(c.service))) return false;
+    if (f.statuses.length && !f.statuses.includes(label(c.status))) return false;
+    if (f.results.length && !f.results.includes(label(c.result || PENDING_RESULT))) return false;
+    const d = childDate(c);
+    if (f.from && (!d || d < f.from)) return false;
+    if (f.to && (!d || d > f.to)) return false;
     return true;
   });
 }
@@ -113,45 +147,87 @@ export function pct(part: number, total: number): number {
   return total ? Math.round((part / total) * 1000) / 10 : 0;
 }
 
-export function familyKpis(rows: FamilyRecord[]) {
+const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((s, x) => s + x, 0) / xs.length) * 10) / 10 : null);
+
+/** العمر وقت الموعد (تاريخ النتيجة)، ولو مش موجود وقت آخر تحديث للبيانات */
+export function familyAges(rows: FamilyRecord[], refDate: string): number[] {
+  return rows
+    .filter((r) => r.birthDate && (r.resultDate || r.labDate || refDate))
+    .map((r) => ageYears(r.birthDate!, r.resultDate ?? r.labDate ?? refDate))
+    .filter((a) => a >= 0 && a < 120);
+}
+
+export function familyKpis(rows: FamilyRecord[], refDate = "") {
   const families = new Set(rows.map((r) => r.family).filter(Boolean));
   const done = rows.filter((r) => isDone(r.status)).length;
-  const withResult = rows.filter((r) => r.result);
-  const suitable = withResult.filter((r) => isSuitable(r.result)).length;
+  const booked = rows.filter((r) => r.resultDate);
+  const completed = booked.filter((r) => r.result);
+  const groups = countBy(completed, (r) => resultGroup(r.result));
+  const g = (name: ResultGroup) => groups.find((x) => x.name === name)?.value ?? 0;
+  const suitable = g("مناسب");
   const turnaround = rows
     .filter((r) => r.labDate && r.resultDate)
     .map((r) => daysBetween(r.labDate!, r.resultDate!))
     .filter((d) => d >= 0);
-  const avgTurnaround = turnaround.length
-    ? Math.round((turnaround.reduce((s, d) => s + d, 0) / turnaround.length) * 10) / 10
-    : null;
   return {
     total: rows.length,
     families: families.size,
     avgMembers: families.size ? Math.round((rows.length / families.size) * 10) / 10 : 0,
+    booked: booked.length,
+    completed: completed.length,
+    pendingResult: booked.length - completed.length,
     done,
     pending: rows.length - done,
     completion: pct(done, rows.length),
     suitable,
-    unsuitable: withResult.length - suitable,
-    suitableRate: pct(suitable, withResult.length),
-    avgTurnaround,
+    unsuitable: g("غير مناسب"),
+    followUp: g("بحاجة لمتابعة"),
+    suitableRate: pct(suitable, completed.length),
+    avgTurnaround: avg(turnaround),
+    avgAge: avg(familyAges(rows, refDate)),
     cities: new Set(rows.map((r) => r.city).filter(Boolean)).size,
+    programs: new Set(rows.map((r) => shortService(r.service))).size,
   };
 }
+
+export const isBeforeReceipt = (service: string) => service.includes("قبل الاستلام");
 
 export function childKpis(rows: ChildRecord[]) {
   const withResult = rows.filter((r) => r.result);
   const healthy = withResult.filter((r) => isHealthy(r.result)).length;
+  const durations = rows
+    .filter((r) => r.receivedDate && r.resultDate)
+    .map((r) => daysBetween(r.receivedDate!, r.resultDate!))
+    .filter((d) => d >= 0);
   return {
     total: rows.length,
+    beforeReceipt: rows.filter((r) => isBeforeReceipt(r.service)).length,
+    // عمود الخدمة (H) = نوع الفحص، وكل صف فيه خدمة = موعد محجوز
+    booked: rows.filter((r) => r.service).length,
+    services: new Set(rows.map((r) => r.service).filter(Boolean)).size,
     healthy,
     unhealthy: withResult.length - healthy,
     healthyRate: pct(healthy, withResult.length),
     withNotes: rows.filter((r) => r.notes).length,
     hospitals: new Set(rows.map((r) => r.hospital).filter(Boolean)).size,
+    citiesFilled: rows.filter((r) => r.city).length,
     done: rows.filter((r) => isDone(r.status)).length,
+    hasDurationData: durations.length > 0,
+    durations,
+    avgDuration: avg(durations),
   };
+}
+
+/** يجمّع التواريخ بالشهر لو المدى أكبر من شهرين، وإلا باليوم */
+export function periodKey(dates: string[]): (iso: string) => string {
+  const sorted = [...dates].sort();
+  const span = sorted.length ? daysBetween(sorted[0], sorted[sorted.length - 1]) : 0;
+  return span > 62 ? (iso) => iso.slice(0, 7) : (iso) => iso;
+}
+
+export function periodLabel(key: string): string {
+  const [y, m, d] = key.split("-");
+  return d ? `${Number(d)}/${Number(m)}` : `${Number(m)}/${y}`;
 }
 
 /** روابط Sankey: المدينة ← نوع الخدمة ← النتيجة */
@@ -161,7 +237,7 @@ export function sankeyCityServiceResult(rows: FamilyRecord[]) {
   rows.forEach((r) => {
     const city = label(r.city);
     const service = `خدمة: ${shortService(r.service)}`;
-    const result = `نتيجة: ${r.result || "بانتظار النتيجة"}`;
+    const result = `نتيجة: ${resultGroup(r.result)}`;
     add(city, service);
     add(service, result);
   });

@@ -28,6 +28,9 @@ export type ChildRecord = {
   result: string;
   notes: string;
   guardian: string;
+  // أعمدة اختيارية: لو العميل ضافها في الشيت، مؤشر "المدة من الاستلام للنتيجة" بيشتغل لوحده
+  receivedDate: string | null;
+  resultDate: string | null;
 };
 
 export type PsychRecord = {

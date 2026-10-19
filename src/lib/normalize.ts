@@ -222,6 +222,9 @@ export function normalizeChildren(rows: RawSheet, issues: DataIssue[]): ChildRec
   const headerRow = findHeaderRow(rows, ["الاسم"]);
   const headers = (rows[headerRow] ?? []).map((c) => normalizeArabic(text(c)));
   const col = mapColumns(headers, {
+    // الأعمدة الاختيارية الأول عشان "تاريخ النتيجة" مايتاخدش كـ "النتيجة"
+    resultDate: (h) => h.includes("تاريخ") && h.includes("النتيجه"),
+    receivedDate: (h) => h.includes("الاستلام") && !h.includes("قبل"),
     birthDate: (h) => h.includes("الميلاد"),
     status: (h) => h.includes("حاله الخدمه"),
     service: (h) => h.includes("الخدمه"),
@@ -241,8 +244,20 @@ export function normalizeChildren(rows: RawSheet, issues: DataIssue[]): ChildRec
     const name = text(cell(row, col.name));
     if (!name) return;
     const birth = parseDate(cell(row, col.birthDate));
-    if (birth.problem) {
-      issues.push({ sheet, row: sheetRow, field: "تاريخ الميلاد", message: birth.problem, level: "error" });
+    const received = parseDate(cell(row, col.receivedDate));
+    const resultAt = parseDate(cell(row, col.resultDate));
+    const dateProblems: [string, ParsedDate][] = [["تاريخ الميلاد", birth], ["تاريخ الاستلام", received], ["تاريخ النتيجة", resultAt]];
+    for (const [field, d] of dateProblems) {
+      if (d.problem) issues.push({ sheet, row: sheetRow, field, message: d.problem, level: "error" });
+    }
+    if (received.iso && resultAt.iso && resultAt.iso < received.iso) {
+      issues.push({
+        sheet,
+        row: sheetRow,
+        field: "تاريخ النتيجة",
+        message: `تاريخ النتيجة (${dmy(resultAt.iso)}) قبل تاريخ الاستلام (${dmy(received.iso)})`,
+        level: "warning",
+      });
     }
     out.push({
       id: `c-${sheetRow}`,
@@ -256,9 +271,15 @@ export function normalizeChildren(rows: RawSheet, issues: DataIssue[]): ChildRec
       result: text(cell(row, col.result)),
       notes: text(cell(row, col.notes)),
       guardian: text(cell(row, col.guardian)),
+      receivedDate: received.iso,
+      resultDate: resultAt.iso,
     });
   });
 
+  if (out.length && out.some((r) => !r.city) && out.some((r) => r.city)) {
+    const missing = out.filter((r) => !r.city).length;
+    issues.push({ sheet, row: 0, field: "المدينة", message: `عمود المدينة فاضي في ${missing} من ${out.length} حالات`, level: "warning" });
+  }
   if (out.length && out.every((r) => !r.city)) {
     issues.push({ sheet, row: 0, field: "المدينة", message: "عمود المدينة فاضي لكل الحالات", level: "warning" });
   }

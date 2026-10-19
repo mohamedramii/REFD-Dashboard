@@ -89,7 +89,7 @@ export function stackedBar(
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
     legend: legendBottom,
     grid: { left: 8, right: 8, top: 16, bottom: 40, containLabel: true },
-    xAxis: { type: "category", data: categories, inverse: true, ...axisStyle },
+    xAxis: { type: "category", data: categories, inverse: true, ...axisStyle, axisLabel: { ...axisStyle.axisLabel, interval: 0, hideOverlap: false, width: 96, overflow: "break" as const, lineHeight: 14 } },
     yAxis: { type: "value", minInterval: 1, position: "right", ...axisStyle },
     series: series.map((s, i) => ({
       name: s.name,
@@ -311,7 +311,7 @@ export function columns(data: NameValue[], color = PALETTE[0], name = "العد�
   return {
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
     grid: { left: 8, right: 8, top: 24, bottom: 8, containLabel: true },
-    xAxis: { type: "category", data: data.map((d) => d.name), inverse: true, ...axisStyle },
+    xAxis: { type: "category", data: data.map((d) => d.name), inverse: true, ...axisStyle, axisLabel: { ...axisStyle.axisLabel, interval: 0, hideOverlap: false, width: 96, overflow: "break" as const, lineHeight: 14 } },
     yAxis: { type: "value", minInterval: 1, position: "right", ...axisStyle },
     series: [
       {

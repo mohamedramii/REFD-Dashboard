@@ -46,7 +46,7 @@ export function ReportView() {
   const refDate = data?.fetchedAt.slice(0, 10) ?? "";
   const family = useMemo(() => applyFamilyFilters(data?.family ?? [], filters), [data, filters]);
   const children = useMemo(() => data?.children ?? [], [data]);
-  const fk = useMemo(() => familyKpis(family), [family]);
+  const fk = useMemo(() => familyKpis(family, refDate), [family, refDate]);
   const ck = useMemo(() => childKpis(children), [children]);
   const charts = useMemo(() => buildFamilyCharts(family, refDate), [family, refDate]);
   const kids = useMemo(() => buildChildCharts(children, refDate), [children, refDate]);
@@ -145,8 +145,8 @@ export function ReportView() {
           </div>
 
           <div className="mt-[9mm] grid grid-cols-4 gap-[4mm]">
-            <BigStat value={fk.total} label="فحص أسري" />
-            <BigStat value={`${fk.completion}%`} label="نسبة الإنجاز" />
+            <BigStat value={fk.total} label="شخص مفحوص" />
+            <BigStat value={fk.booked} label="موعد محجوز" />
             <BigStat value={`${fk.suitableRate}%`} label="نتائج مناسبة" />
             <BigStat value={ck.total} label="فحص أطفال" accent />
           </div>
@@ -162,19 +162,19 @@ export function ReportView() {
       {/* ---------- الملخص التنفيذي ---------- */}
       <Sheet n={1} title="الملخص التنفيذي" subtitle="أهم المؤشرات والملاحظات">
         <div className="grid grid-cols-4 gap-[3mm]">
-          <Kpi label="إجمالي الفحوصات" value={fk.total} hint={`${fk.cities} مدن`} />
-          <Kpi label="عدد الأسر" value={fk.families} hint={`متوسط ${fk.avgMembers} فرد`} />
-          <Kpi label="تم رفع التقارير" value={fk.done} hint={`${fk.pending} قيد التنفيذ`} />
-          <Kpi label="متوسط زمن النتيجة" value={fk.avgTurnaround ?? "—"} hint="يوم" />
-          <Kpi label="نتائج مناسبة" value={fk.suitable} hint={`${fk.unsuitable} غير مناسب`} tone="good" />
-          <Kpi label="فحص الأطفال" value={ck.total} hint={`${ck.hospitals} مستشفى`} />
+          <Kpi label="الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} />
+          <Kpi label="المواعيد المحجوزة" value={fk.booked} hint="حسب تاريخ النتيجة" />
+          <Kpi label="تمت وظهرت نتيجتها" value={fk.completed} hint={`${fk.pendingResult} بانتظار النتيجة`} />
+          <Kpi label="مناسب" value={fk.suitable} hint={`${fk.unsuitable} غير مناسب · ${fk.followUp} متابعة`} tone="good" />
+          <Kpi label="فحوصات الأطفال" value={ck.total} hint={`${ck.services} أنواع فحص`} />
+          <Kpi label="فحص قبل الاستلام" value={ck.beforeReceipt} hint={`من ${ck.total} فحص`} />
           <Kpi label="أطفال سليمين" value={`${ck.healthyRate}%`} hint={`${ck.healthy} طفل`} tone="good" />
-          <Kpi label="الفحص النفسي" value={data.psych.length} hint={`${data.psych.filter((p) => isDone(p.status)).length} مكتمل`} />
+          <Kpi label="متوسط العمر" value={fk.avgAge ?? "—"} hint="سنة (الأسر)" />
         </div>
 
         <div className="mt-[4mm] grid grid-cols-3 gap-[3mm]">
-          <Block title="نسبة الإنجاز">
-            <Chart still option={gauge(fk.completion, `${fk.done} من ${fk.total}`)} height={150} />
+          <Block title="مواعيد ظهرت نتيجتها">
+            <Chart still option={gauge(fk.booked ? Math.round((fk.completed / fk.booked) * 1000) / 10 : 0, `${fk.completed} من ${fk.booked}`)} height={150} />
           </Block>
           <Block title="نسبة المناسب">
             <Chart still option={gauge(fk.suitableRate, `${fk.suitable} حالة`, "#0BC8F2")} height={150} />
@@ -258,7 +258,7 @@ export function ReportView() {
           <Kpi label="إجمالي الأطفال" value={ck.total} />
           <Kpi label="سليم" value={ck.healthy} tone="good" />
           <Kpi label="غير سليم" value={ck.unhealthy} tone={ck.unhealthy ? "bad" : undefined} />
-          <Kpi label="عليها ملاحظات" value={ck.withNotes} />
+          <Kpi label="فحص قبل الاستلام" value={ck.beforeReceipt} />
         </div>
         <div className="mt-[3mm] grid grid-cols-5 gap-[3mm]">
           <Block title="نتائج الفحص" className="col-span-2">

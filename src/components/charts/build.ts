@@ -1,20 +1,26 @@
 import {
   ageMonths,
-  ageYears,
   bucket,
+  childDate,
   countBy,
   daysBetween,
+  familyAges,
   familyKpis,
   isDone,
   label,
   matrix,
+  PENDING_RESULT,
+  periodKey,
+  periodLabel,
+  RESULT_GROUPS,
+  resultGroup,
   sankeyCityServiceResult,
   shortService,
   timeline,
   uniq,
 } from "@/lib/analytics";
 import type { ChildRecord, FamilyRecord } from "@/lib/types";
-import { PALETTE } from "./Chart";
+import { PALETTE, STATUS_COLORS } from "./Chart";
 import {
   columns,
   donut,
@@ -29,10 +35,30 @@ import {
 
 // إعدادات الرسوم مشتركة بين الداشبورد وتقرير الطباعة، عشان الأرقام تبقى واحدة في الاتنين
 
+const AGE_EDGES = [0, 18, 30, 40, 50, 200];
+const AGE_LABELS = ["أقل من 18", "18–29", "30–39", "40–49", "50+"];
+
+/** عدد المستفيدين في كل فترة، مقسم حسب المجموعة (نتيجة أو نوع فحص...) */
+function periodStack<T>(rows: T[], date: (r: T) => string | null, group: (r: T) => string, groups: string[], colors?: Record<string, string>) {
+  const dated = rows.filter((r) => date(r));
+  const keyOf = periodKey(dated.map((r) => date(r)!));
+  const keys = uniq(dated.map((r) => keyOf(date(r)!))).sort();
+  const option = stackedBar(
+    keys.map(periodLabel),
+    groups.map((g, i) => ({
+      name: g,
+      data: keys.map((k) => dated.filter((r) => keyOf(date(r)!) === k && group(r) === g).length),
+      color: colors?.[g] ?? PALETTE[i % PALETTE.length],
+    })),
+  );
+  return { option, hasData: dated.length > 0, missing: rows.length - dated.length };
+}
+
 export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
   const services = uniq(filtered.map((r) => shortService(r.service)));
   const cities = countBy(filtered, (r) => r.city).map((c) => c.name);
   const cityService = matrix(filtered, (r) => r.city, (r) => shortService(r.service));
+  const groupsPresent = RESULT_GROUPS.filter((g) => filtered.some((r) => resultGroup(r.result) === g));
 
   const byCityStack = stackedBar(
     cities,
@@ -43,13 +69,21 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     })),
   );
 
-  const resultLabels = uniq(filtered.map((r) => r.result || "بانتظار النتيجة"));
+  const cityResult = stackedBar(
+    cities,
+    groupsPresent.map((g) => ({
+      name: g,
+      data: cities.map((c) => filtered.filter((r) => label(r.city) === c && resultGroup(r.result) === g).length),
+      color: STATUS_COLORS[g],
+    })),
+  );
+
   const resultByService = stackedBar(
     services,
-    resultLabels.map((res) => ({
+    groupsPresent.map((res) => ({
       name: res,
-      data: services.map((s) => filtered.filter((r) => shortService(r.service) === s && (r.result || "بانتظار النتيجة") === res).length),
-      color: res === "مناسب" ? "#1F9D6B" : res.startsWith("غير") ? "#D6455D" : "#E39A1E",
+      data: services.map((s) => filtered.filter((r) => shortService(r.service) === s && resultGroup(r.result) === res).length),
+      color: STATUS_COLORS[res],
     })),
   );
 
@@ -64,11 +98,23 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     children: countBy(filtered.filter((r) => label(r.city) === c.name), (r) => r.district),
   }));
 
-  const ages = filtered
-    .filter((r) => r.birthDate)
-    .filter((r) => r.labDate || refDate)
-    .map((r) => ageYears(r.birthDate!, r.labDate ?? refDate));
-  const ageBuckets = bucket(ages, [0, 18, 30, 40, 50, 200], ["أقل من 18", "18–29", "30–39", "40–49", "50+"]);
+  const ageBuckets = bucket(familyAges(filtered, refDate), AGE_EDGES, AGE_LABELS);
+
+  // العمر × نوع البرنامج: مين بيستفيد من أنهي برنامج
+  const ageOf = (r: FamilyRecord) => familyAges([r], refDate)[0];
+  const ageGroupOf = (r: FamilyRecord) => {
+    const a = ageOf(r);
+    if (a === undefined) return "";
+    return bucket([a], AGE_EDGES, AGE_LABELS).find((b) => b.value)?.name ?? "";
+  };
+  const ageByProgram = stackedBar(
+    AGE_LABELS,
+    services.map((s, i) => ({
+      name: s,
+      data: AGE_LABELS.map((g) => filtered.filter((r) => shortService(r.service) === s && ageGroupOf(r) === g).length),
+      color: PALETTE[i % PALETTE.length],
+    })),
+  );
 
   const tat = filtered
     .filter((r) => r.labDate && r.resultDate)
@@ -91,7 +137,7 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
   const radarIndicators = [
     { name: "الفحوصات", max: Math.max(1, ...topCities.map((c) => c.value)) },
     { name: "الأسر", max: 1 },
-    { name: "الإنجاز %", max: 100 },
+    { name: "المواعيد", max: 1 },
     { name: "المناسب %", max: 100 },
     { name: "الأحياء", max: 1 },
   ];
@@ -100,21 +146,30 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     const k = familyKpis(rows);
     const districts = new Set(rows.map((r) => r.district)).size;
     radarIndicators[1].max = Math.max(radarIndicators[1].max, k.families);
+    radarIndicators[2].max = Math.max(radarIndicators[2].max, k.booked);
     radarIndicators[4].max = Math.max(radarIndicators[4].max, districts);
-    return { name: c.name, value: [c.value, k.families, k.completion, k.suitableRate, districts], color: PALETTE[i % PALETTE.length] };
+    return { name: c.name, value: [c.value, k.families, k.booked, k.suitableRate, districts], color: PALETTE[i % PALETTE.length] };
   });
+
+  const period = periodStack(filtered, (r) => r.resultDate, (r) => resultGroup(r.result), [...groupsPresent], STATUS_COLORS);
 
   return {
     byCityStack,
+    cityResult,
     resultByService,
     doneByCity,
+    period: period.option,
+    periodHasData: period.hasData,
+    periodMissing: period.missing,
     sankey: sankey(sankeyCityServiceResult(filtered)),
     heat: heatmap(cityService.rows, cityService.cols, cityService.get),
-    services: donut(countBy(filtered, (r) => shortService(r.service)), "فحص"),
-    results: donut(countBy(filtered, (r) => r.result || "بانتظار النتيجة"), "نتيجة", true),
+    services: donut(countBy(filtered, (r) => shortService(r.service)), "مستفيد"),
+    results: donut(countBy(filtered, (r) => resultGroup(r.result)), "نتيجة", true),
+    resultDetail: horizontalBar(countBy(filtered.filter((r) => r.result), (r) => r.result), PALETTE[0], 20),
     timeline: timelineChart(timeline(filtered)),
     tree: treemap(tree),
     ages: columns(ageBuckets, PALETTE[0], "عدد الأشخاص"),
+    ageByProgram,
     tat: columns(tatBuckets, PALETTE[1], "عدد النتائج"),
     famSizes: columns(famSizes, PALETTE[2], "عدد الأسر"),
     radar: radar(radarIndicators, radarSeries),
@@ -123,9 +178,34 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
 
 export function buildChildCharts(children: ChildRecord[], refDate: string) {
   const months = refDate ? children.filter((c) => c.birthDate).map((c) => ageMonths(c.birthDate!, refDate)) : [];
+  const services = countBy(children, (c) => c.service).map((s) => s.name);
+  const results = uniq(children.map((c) => c.result || PENDING_RESULT));
+
+  const serviceResult = stackedBar(
+    services,
+    results.map((res, i) => ({
+      name: res,
+      data: services.map((s) => children.filter((c) => label(c.service) === s && (c.result || PENDING_RESULT) === res).length),
+      color: STATUS_COLORS[res] ?? PALETTE[i % PALETTE.length],
+    })),
+  );
+
+  const durations = children
+    .filter((c) => c.receivedDate && c.resultDate)
+    .map((c) => daysBetween(c.receivedDate!, c.resultDate!))
+    .filter((d) => d >= 0);
+
+  const period = periodStack(children, childDate, (c) => c.result || PENDING_RESULT, results, STATUS_COLORS);
+
   return {
-    results: donut(countBy(children, (c) => c.result || "بانتظار النتيجة"), "طفل", true),
+    results: donut(countBy(children, (c) => c.result || PENDING_RESULT), "طفل", true),
+    services: horizontalBar(countBy(children, (c) => c.service), PALETTE[0], 24),
+    serviceResult,
+    cities: horizontalBar(countBy(children, (c) => c.city), PALETTE[1], 20),
     hospitals: horizontalBar(countBy(children, (c) => c.hospital), PALETTE[1], 22),
+    duration: columns(bucket(durations, [0, 3, 7, 14, 30, 10000], ["0–2 يوم", "3–6 أيام", "1–2 أسبوع", "2–4 أسابيع", "+شهر"]), PALETTE[1], "عدد الحالات"),
+    period: period.option,
+    periodHasData: period.hasData,
     ages: columns(bucket(months, [0, 3, 6, 9, 12, 1000], ["0–2 شهر", "3–5", "6–8", "9–11", "سنة+"]), PALETTE[0], "عدد الأطفال"),
     notes: donut(
       [

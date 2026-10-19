@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
+  applyChildFilters,
   applyFamilyFilters,
   childKpis,
   completeness,
@@ -12,27 +13,29 @@ import {
   filtersToQuery,
   isDone,
   label,
+  PENDING_RESULT,
+  RESULT_GROUPS,
+  resultGroup,
   shortService,
   uniq,
 } from "@/lib/analytics";
 import { Chart } from "./charts/Chart";
 import { buildChildCharts, buildFamilyCharts } from "./charts/build";
-import { gauge } from "./charts/options";
 import { REFRESH_MS, useDashboardData } from "./useDashboardData";
 import { Icons } from "./icons";
-import { ChartCard, KpiCard, MultiSelect } from "./ui";
+import { ChartCard, EmptyChart, KpiCard, MultiSelect, SectionTitle } from "./ui";
 import { RecordsTable } from "./RecordsTable";
 import { QualityPanel } from "./QualityPanel";
 
-
 const TABS = [
-  { id: "overview", label: "نظرة عامة" },
-  { id: "family", label: "فحوصات الأسرة" },
-  { id: "children", label: "فحص الأطفال" },
+  { id: "family", label: "لوحة الأسر" },
+  { id: "children", label: "لوحة الأطفال" },
   { id: "quality", label: "جودة البيانات" },
   { id: "records", label: "السجلات" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
+// التبويبين اللي طلبهم العميل ظاهرين، وجودة البيانات والسجلات متخفيين لحد ما يتطلبوا
+const VISIBLE_TABS: TabId[] = ["family", "children"];
 
 function timeAgo(iso: string, now: number) {
   const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
@@ -42,10 +45,14 @@ function timeAgo(iso: string, now: number) {
   return m < 60 ? `منذ ${m} دقيقة` : new Date(iso).toLocaleTimeString("ar-EG");
 }
 
+const countActive = (f: Filters) =>
+  f.cities.length + f.services.length + f.statuses.length + f.results.length + (f.from ? 1 : 0) + (f.to ? 1 : 0);
+
 export function Dashboard() {
   const { data, loading, netError, reload } = useDashboardData();
-  const [tab, setTab] = useState<TabId>("overview");
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [tab, setTab] = useState<TabId>("family");
+  const [famFilters, setFamFilters] = useState<Filters>(emptyFilters);
+  const [kidFilters, setKidFilters] = useState<Filters>(emptyFilters);
   // الوقت الحالي بيتقرا في المتصفح بس، عشان الصفحة تتبني مسبقًا من غير قيمة متغيرة
   const [now, setNow] = useState(0);
 
@@ -64,31 +71,38 @@ export function Dashboard() {
 
   const family = useMemo(() => data?.family ?? [], [data]);
   const children = useMemo(() => data?.children ?? [], [data]);
-  const filtered = useMemo(() => applyFamilyFilters(family, filters), [family, filters]);
+  const fam = useMemo(() => applyFamilyFilters(family, famFilters), [family, famFilters]);
+  const kids = useMemo(() => applyChildFilters(children, kidFilters), [children, kidFilters]);
 
-  const options = useMemo(
+  const famOptions = useMemo(
     () => ({
       cities: uniq(family.map((r) => label(r.city))),
       services: uniq(family.map((r) => shortService(r.service))),
       statuses: uniq(family.map((r) => label(r.status))),
-      results: uniq(family.map((r) => label(r.result))),
+      results: RESULT_GROUPS.filter((g) => family.some((r) => resultGroup(r.result) === g)),
     }),
     [family],
   );
+  const kidOptions = useMemo(
+    () => ({
+      cities: uniq(children.map((c) => label(c.city))),
+      services: uniq(children.map((c) => label(c.service))),
+      statuses: uniq(children.map((c) => label(c.status))),
+      results: uniq(children.map((c) => c.result || PENDING_RESULT)),
+    }),
+    [children],
+  );
 
-  const fk = useMemo(() => familyKpis(filtered), [filtered]);
-  const ck = useMemo(() => childKpis(children), [children]);
-  const activeFilters =
-    filters.cities.length + filters.services.length + filters.statuses.length + filters.results.length + (filters.from ? 1 : 0) + (filters.to ? 1 : 0);
+  const fk = useMemo(() => familyKpis(fam, refDate), [fam, refDate]);
+  const ck = useMemo(() => childKpis(kids), [kids]);
+  const charts = useMemo(() => buildFamilyCharts(fam, refDate), [fam, refDate]);
+  const kidCharts = useMemo(() => buildChildCharts(kids, refDate), [kids, refDate]);
+  const kidsHaveDates = children.some((c) => c.receivedDate || c.resultDate);
 
-  const toggleIn = (key: "cities" | "services" | "results", value: string) =>
-    setFilters((f) => ({
-      ...f,
-      [key]: f[key].includes(value) ? f[key].filter((v) => v !== value) : [...f[key], value],
-    }));
-
-  const charts = useMemo(() => buildFamilyCharts(filtered, refDate), [filtered, refDate]);
-  const childCharts = useMemo(() => buildChildCharts(children, refDate), [children, refDate]);
+  const toggleFam = (key: "cities" | "services" | "results", value: string) =>
+    setFamFilters((f) => ({ ...f, [key]: f[key].includes(value) ? f[key].filter((v) => v !== value) : [...f[key], value] }));
+  const toggleKid = (key: "cities" | "services" | "results", value: string) =>
+    setKidFilters((f) => ({ ...f, [key]: f[key].includes(value) ? f[key].filter((v) => v !== value) : [...f[key], value] }));
 
   const quality = useMemo(
     () =>
@@ -107,13 +121,13 @@ export function Dashboard() {
   return (
     <div className="refd-backdrop min-h-screen">
       {/* ---------- الهيدر ---------- */}
-      <header className="sticky top-0 z-40 border-b border-line/70 bg-white/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-line/70 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1500px] items-center gap-4 px-4 py-3 md:px-8">
           <Image src="/refd-logo.png" alt="رفد" width={1213} height={646} priority className="h-12 w-auto" />
           <div className="hidden h-9 w-px bg-line md:block" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold text-ink md:text-xl">لوحة متابعة الفحوصات</h1>
-            <p className="truncate text-xs text-muted">التحقق الصحي للأسر · فحص الأطفال قبل الاستلام · الفحص النفسي</p>
+            <p className="truncate text-xs text-muted">التحقق الصحي للأسر · فحص الأطفال قبل الاستلام</p>
           </div>
           <div className="flex items-center gap-2">
             {data && (
@@ -124,7 +138,7 @@ export function Dashboard() {
               </div>
             )}
             <a
-              href={`/report?${filtersToQuery(filters)}`}
+              href={`/report?${filtersToQuery(famFilters)}`}
               target="_blank"
               rel="noopener"
               className="flex h-10 items-center gap-2 rounded-xl border border-refd-purple/30 bg-white px-4 text-sm font-medium text-refd-purple transition hover:bg-refd-purple-50"
@@ -146,27 +160,24 @@ export function Dashboard() {
           </div>
         </div>
         <nav className="mx-auto flex max-w-[1500px] gap-1 overflow-x-auto px-4 md:px-8 scrollbar-thin">
-          {/* Keep the other tabs implemented; only overview is currently visible. */}
-          {TABS.filter((t): boolean => t.id === "overview").map((t) => (
+          {TABS.filter((t) => VISIBLE_TABS.includes(t.id)).map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`relative whitespace-nowrap px-4 py-3 text-sm font-medium transition ${
+              className={`relative flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold transition ${
                 tab === t.id ? "text-refd-purple" : "text-muted hover:text-ink"
               }`}
             >
+              {t.id === "family" ? <Icons.home /> : t.id === "children" ? <Icons.baby /> : null}
               {t.label}
-              {t.id === "quality" && data && data.issues.length > 0 && (
-                <span className="ms-1.5 rounded-full bg-[#FDF1DC] px-1.5 text-[10px] font-bold text-warning">{data.issues.length}</span>
-              )}
               {tab === t.id && <span className="absolute inset-x-3 bottom-0 h-[3px] rounded-t-full bg-gradient-to-l from-refd-cyan to-refd-purple" />}
             </button>
           ))}
         </nav>
       </header>
 
-      <main className="mx-auto max-w-[1500px] space-y-5 px-4 py-6 md:px-0">
+      <main className="mx-auto max-w-[1500px] space-y-5 px-4 py-6 md:px-8">
         {(netError || data?.error) && (
           <div className="card flex items-center gap-3 border-danger/30 bg-[#FBE5E9] p-4 text-sm text-danger">
             <Icons.alert />
@@ -188,155 +199,156 @@ export function Dashboard() {
 
         {!data && <LoadingState />}
 
-        {data && (tab === "overview" || tab === "family") && (
-          <FiltersBar filters={filters} setFilters={setFilters} options={options} active={activeFilters} />
-        )}
-
-        {data && tab === "overview" && (
+        {/* ================= لوحة الأسر ================= */}
+        {data && tab === "family" && (
           <>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 2xl:grid-cols-8">
-              <KpiCard label="إجمالي الفحوصات" value={fk.total} hint={`${fk.cities} مدن`} icon={<Icons.clipboard />} />
-              <KpiCard label="عدد الأسر" value={fk.families} hint={`متوسط ${fk.avgMembers} فرد للأسرة`} tone="cyan" icon={<Icons.home />} />
-              <KpiCard label="تم رفع التقارير" value={fk.done} hint={`${fk.pending} قيد التنفيذ`} tone="success" icon={<Icons.check />} progress={fk.completion} />
-              <KpiCard label="نسبة المناسب" value={`${fk.suitableRate}%`} hint={`${fk.suitable} مناسب · ${fk.unsuitable} غير مناسب`} tone="success" icon={<Icons.heart />} progress={fk.suitableRate} />
-              <KpiCard label="متوسط زمن النتيجة" value={fk.avgTurnaround ?? "—"} hint="يوم من الفحص للنتيجة" tone="warning" icon={<Icons.clock />} />
-              <KpiCard label="فحص الأطفال" value={ck.total} hint={`${ck.hospitals} مستشفى`} tone="cyan" icon={<Icons.baby />} />
-              <KpiCard label="أطفال سليمين" value={`${ck.healthyRate}%`} hint={`${ck.healthy} من ${ck.healthy + ck.unhealthy}`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
-              <KpiCard label="الفحص النفسي" value={data.psych.length} hint={`${data.psych.filter((p) => isDone(p.status)).length} مكتمل`} tone="purple" icon={<Icons.brain />} />
+            <FiltersBar
+              filters={famFilters}
+              setFilters={setFamFilters}
+              options={famOptions}
+              labels={{ cities: "المدينة", services: "نوع البرنامج", statuses: "حالة الخدمة", results: "النتيجة" }}
+              periodLabel="فترة الموعد"
+            />
+
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} icon={<Icons.clipboard />} />
+              <KpiCard label="المواعيد المحجوزة" value={fk.booked} hint="حسب تاريخ النتيجة" tone="cyan" icon={<Icons.calendar />} />
+              <KpiCard
+                label="تمت وظهرت نتيجتها"
+                value={fk.completed}
+                hint={fk.pendingResult ? `${fk.pendingResult} بانتظار النتيجة` : "كل المواعيد ليها نتيجة"}
+                tone="purple"
+                icon={<Icons.check />}
+                progress={fk.booked ? (fk.completed / fk.booked) * 100 : 0}
+              />
+              <KpiCard label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتايج`} tone="success" icon={<Icons.heart />} progress={fk.suitableRate} />
+              <KpiCard label="غير مناسب" value={fk.unsuitable} hint="محتاج مراجعة" tone="danger" icon={<Icons.alert />} />
+              <KpiCard label="بحاجة لمتابعة" value={fk.followUp} hint={fk.avgAge !== null ? `متوسط العمر ${fk.avgAge} سنة` : undefined} tone="warning" icon={<Icons.clock />} />
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-3">
-              <ChartCard title="مسار الحالات" subtitle="من المدينة ← نوع الخدمة ← النتيجة" className="lg:col-span-2">
-                <Chart option={charts.sankey} height={360} />
+            <SectionTitle title="المستفيدين حسب الفترة" subtitle="عدد المواعيد في كل فترة، مقسمة حسب النتيجة · غيّر الفترة من الفلتر فوق" />
+            <ChartCard
+              title="المواعيد المحجوزة على مدار الوقت"
+              subtitle={charts.periodMissing ? `${charts.periodMissing} حالة من غير تاريخ نتيجة ومش ظاهرة هنا` : undefined}
+            >
+              {charts.periodHasData ? <Chart option={charts.period} height={300} /> : <EmptyChart text="مافيش مواعيد في الفترة دي" />}
+            </ChartCard>
+
+            <SectionTitle title="المدن ونوع البرنامج" subtitle="اضغط على أي مدينة أو برنامج عشان تفلتر اللوحة كلها" />
+            <div className="grid gap-5 lg:grid-cols-5">
+              <ChartCard title="المستفيدين حسب المدينة" subtitle="مقسمين حسب النتيجة" className="lg:col-span-3">
+                <Chart option={charts.cityResult} height={300} onClickName={(n) => toggleFam("cities", n)} />
               </ChartCard>
-              <div className="grid gap-5">
-                <ChartCard title="نسبة الإنجاز" subtitle="الحالات اللي تم رفع تقاريرها">
-                  <Chart option={gauge(fk.completion, `${fk.done} من ${fk.total}`)} height={150} />
-                </ChartCard>
-                <ChartCard title="نسبة المناسب" subtitle="من الحالات اللي صدرت نتيجتها">
-                  <Chart option={gauge(fk.suitableRate, `${fk.suitable} حالة`, "#0BC8F2")} height={150} />
-                </ChartCard>
-              </div>
+              <ChartCard title="نوع البرنامج" subtitle="الخدمة المقدمة" className="lg:col-span-2">
+                <Chart option={charts.services} height={300} onClickName={(n) => toggleFam("services", n)} />
+              </ChartCard>
+            </div>
+
+            <SectionTitle title="العمر والنتائج" />
+            <div className="grid gap-5 lg:grid-cols-3">
+              <ChartCard title="الفئات العمرية" subtitle="العمر وقت الموعد، محسوب من تاريخ الميلاد">
+                <Chart option={charts.ages} height={270} />
+              </ChartCard>
+              <ChartCard title="العمر × نوع البرنامج">
+                <Chart option={charts.ageByProgram} height={270} />
+              </ChartCard>
+              <ChartCard title="النتائج" subtitle="مناسب / غير مناسب / بحاجة لمتابعة">
+                <Chart option={charts.results} height={270} onClickName={(n) => toggleFam("results", n)} />
+              </ChartCard>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-5">
-              <ChartCard title="حركة الفحوصات والنتائج" subtitle="يوميًا مع الإجمالي التراكمي" className="lg:col-span-3">
-                <Chart option={charts.timeline} height={320} />
+              <ChartCard title="مسار الحالات" subtitle="المدينة ← نوع البرنامج ← النتيجة" className="lg:col-span-3">
+                <Chart option={charts.sankey} height={330} />
               </ChartCard>
-              <ChartCard title="المدينة × نوع الخدمة" subtitle="خريطة كثافة لعدد الفحوصات" className="lg:col-span-2">
-                <Chart option={charts.heat} height={320} />
-              </ChartCard>
-            </div>
-
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              <ChartCard title="توزيع الخدمات" subtitle="اضغط على شريحة للفلترة">
-                <Chart option={charts.services} height={280} onClickName={(n) => toggleIn("services", n)} />
-              </ChartCard>
-              <ChartCard title="مقارنة المدن" subtitle="أعلى 4 مدن على 5 مؤشرات">
-                <Chart option={charts.radar} height={280} />
-              </ChartCard>
-              <ChartCard title="نتائج فحص الأطفال" subtitle="سليم مقابل غير سليم">
-                <Chart option={childCharts.results} height={280} />
+              <ChartCard title="تفاصيل النتايج" subtitle="كل نتيجة زي ما مكتوبة في الشيت" className="lg:col-span-2">
+                <Chart option={charts.resultDetail} height={330} />
               </ChartCard>
             </div>
           </>
         )}
 
-        {data && tab === "family" && (
-          <>
-            <div className="grid gap-5 lg:grid-cols-2">
-              <ChartCard title="الفحوصات حسب المدينة" subtitle="مقسمة حسب نوع الخدمة · اضغط على مدينة للفلترة">
-                <Chart option={charts.byCityStack} height={320} onClickName={(n) => toggleIn("cities", n)} />
-              </ChartCard>
-              <ChartCard title="المدن والأحياء" subtitle="مساحة كل مربع = عدد الفحوصات">
-                <Chart option={charts.tree} height={320} />
-              </ChartCard>
-            </div>
-            <div className="grid gap-5 lg:grid-cols-3">
-              <ChartCard title="النتائج حسب نوع الخدمة">
-                <Chart option={charts.resultByService} height={290} />
-              </ChartCard>
-              <ChartCard title="حالة الخدمة حسب المدينة">
-                <Chart option={charts.doneByCity} height={290} />
-              </ChartCard>
-              <ChartCard title="توزيع النتائج" subtitle="اضغط على شريحة للفلترة">
-                <Chart option={charts.results} height={290} onClickName={(n) => n !== "بانتظار النتيجة" && toggleIn("results", n)} />
-              </ChartCard>
-            </div>
-            <div className="grid gap-5 lg:grid-cols-3">
-              <ChartCard title="الفئات العمرية" subtitle="العمر وقت الفحص">
-                <Chart option={charts.ages} height={260} />
-              </ChartCard>
-              <ChartCard title="زمن صدور النتيجة" subtitle="عدد الأيام من الفحص المخبري للنتيجة">
-                <Chart option={charts.tat} height={260} />
-              </ChartCard>
-              <ChartCard title="حجم الأسر" subtitle="عدد الأفراد المفحوصين في كل أسرة">
-                <Chart option={charts.famSizes} height={260} />
-              </ChartCard>
-            </div>
-          </>
-        )}
-
+        {/* ================= لوحة الأطفال ================= */}
         {data && tab === "children" && (
           <>
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-              <KpiCard label="إجمالي الأطفال" value={ck.total} icon={<Icons.baby />} />
-              <KpiCard label="سليم" value={ck.healthy} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
-              <KpiCard label="غير سليم" value={ck.unhealthy} tone="danger" icon={<Icons.alert />} />
-              <KpiCard label="حالات عليها ملاحظات" value={ck.withNotes} tone="warning" icon={<Icons.clipboard />} />
-              <KpiCard label="المستشفيات" value={ck.hospitals} tone="cyan" icon={<Icons.hospital />} />
+            <FiltersBar
+              filters={kidFilters}
+              setFilters={setKidFilters}
+              options={kidOptions}
+              labels={{ cities: "المدينة", services: "نوع الفحص", statuses: "حالة الخدمة", results: "نتيجة الفحص" }}
+              periodLabel="الفترة"
+              periodDisabled={!kidsHaveDates}
+            />
+
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+              <KpiCard label="عدد الفحوصات" value={ck.total} hint={`${ck.services} أنواع فحص`} icon={<Icons.clipboard />} />
+              <KpiCard label="فحص قبل الاستلام" value={ck.beforeReceipt} hint={`من ${ck.total} فحص`} tone="cyan" icon={<Icons.baby />} progress={ck.total ? (ck.beforeReceipt / ck.total) * 100 : 0} />
+              <KpiCard label="المواعيد المحجوزة" value={ck.booked} hint="حسب نوع الفحص" tone="purple" icon={<Icons.calendar />} />
+              <KpiCard label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتايج`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
+              <KpiCard label="غير سليم" value={ck.unhealthy} hint={`${ck.withNotes} عليها ملاحظات`} tone="danger" icon={<Icons.alert />} />
+              <KpiCard
+                label="من الاستلام للنتيجة"
+                value={ck.avgDuration !== null ? `${ck.avgDuration}` : "—"}
+                hint={ck.hasDurationData ? "متوسط بالأيام" : "بانتظار عمود تاريخ الاستلام"}
+                tone="warning"
+                icon={<Icons.clock />}
+              />
             </div>
+
+            <SectionTitle title="نوع الفحص والنتيجة" subtitle="اضغط على أي نوع فحص أو نتيجة عشان تفلتر" />
+            <div className="grid gap-5 lg:grid-cols-5">
+              <ChartCard title="المواعيد المحجوزة حسب نوع الفحص" subtitle="عمود الخدمة المقدمة" className="lg:col-span-3">
+                <Chart option={kidCharts.services} height={Math.max(240, ck.services * 46)} onClickName={(n) => toggleKid("services", n)} />
+              </ChartCard>
+              <ChartCard title="نتيجة الفحص" className="lg:col-span-2">
+                <Chart option={kidCharts.results} height={Math.max(240, ck.services * 46)} onClickName={(n) => toggleKid("results", n)} />
+              </ChartCard>
+            </div>
+            <ChartCard title="النتيجة حسب نوع الفحص">
+              <Chart option={kidCharts.serviceResult} height={280} />
+            </ChartCard>
+
+            <SectionTitle title="المدينة والمدة الزمنية" />
+            <div className="grid gap-5 lg:grid-cols-3">
+              <ChartCard title="الحالات حسب المدينة" subtitle={ck.citiesFilled < ck.total ? `المدينة مكتوبة في ${ck.citiesFilled} من ${ck.total} حالات بس` : undefined}>
+                <Chart option={kidCharts.cities} height={260} onClickName={(n) => toggleKid("cities", n)} />
+              </ChartCard>
+              <ChartCard title="المدة من الاستلام حتى ظهور النتيجة" subtitle="بالأيام">
+                {ck.hasDurationData ? (
+                  <Chart option={kidCharts.duration} height={260} />
+                ) : (
+                  <EmptyChart text="ضيفوا في شيت الأطفال عمودين «تاريخ الاستلام» و«تاريخ النتيجة»، والرسم هيظهر لوحده" />
+                )}
+              </ChartCard>
+              <ChartCard title="الحالات حسب الفترة">
+                {kidCharts.periodHasData ? (
+                  <Chart option={kidCharts.period} height={260} />
+                ) : (
+                  <EmptyChart text="محتاج تاريخ استلام أو تاريخ نتيجة لكل حالة" />
+                )}
+              </ChartCard>
+            </div>
+
             <div className="grid gap-5 lg:grid-cols-3">
               <ChartCard title="الحالات حسب المستشفى" className="lg:col-span-2">
-                <Chart option={childCharts.hospitals} height={Math.max(260, ck.hospitals * 34)} />
-              </ChartCard>
-              <ChartCard title="نتائج الفحص">
-                <Chart option={childCharts.results} height={280} />
-              </ChartCard>
-            </div>
-            <div className="grid gap-5 lg:grid-cols-3">
-              <ChartCard title="عمر الطفل حاليًا" subtitle="بالشهور">
-                <Chart option={childCharts.ages} height={260} />
-              </ChartCard>
-              <ChartCard title="الملاحظات الطبية">
-                <Chart option={childCharts.notes} height={260} />
+                <Chart option={kidCharts.hospitals} height={Math.max(240, ck.hospitals * 32)} />
               </ChartCard>
               <ChartCard title="ملاحظات تحتاج متابعة">
-                <ul className="scrollbar-thin max-h-[260px] space-y-2 overflow-auto">
-                  {children.filter((c) => c.notes).map((c) => (
+                <ul className="scrollbar-thin max-h-[300px] space-y-2 overflow-auto">
+                  {kids.filter((c) => c.notes).map((c) => (
                     <li key={c.id} className="rounded-2xl border border-line bg-refd-purple-50/60 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold">{c.name}</span>
-                        <span className={`text-[11px] font-medium ${c.result === "سليم" ? "text-success" : "text-danger"}`}>{c.result || "بانتظار النتيجة"}</span>
+                        <span className={`text-[11px] font-medium ${c.result === "سليم" ? "text-success" : "text-danger"}`}>{c.result || PENDING_RESULT}</span>
                       </div>
                       <p className="mt-1 text-xs text-muted">{c.notes}</p>
-                      <p className="mt-1 text-[11px] text-refd-purple">{c.hospital}</p>
+                      <p className="mt-1 text-[11px] text-refd-purple">{c.service}</p>
                     </li>
                   ))}
                   {ck.withNotes === 0 && <p className="text-sm text-muted">لا توجد ملاحظات</p>}
                 </ul>
               </ChartCard>
             </div>
-            {data.psych.length > 0 && (
-              <ChartCard title="الفحص النفسي" subtitle={`${data.psych.length} حالة`}>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {data.psych.map((p) => (
-                    <div key={p.id} className="rounded-2xl border border-line p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold">{p.caseType || p.service}</span>
-                        <span className={`text-xs font-medium ${isDone(p.status) ? "text-success" : "text-warning"}`}>{p.status || "—"}</span>
-                      </div>
-                      <dl className="mt-2 grid grid-cols-2 gap-y-1 text-xs text-muted">
-                        <dt>المدينة</dt><dd className="text-ink">{p.city || "—"}</dd>
-                        <dt>العمر</dt><dd className="text-ink">{p.age ?? "—"}</dd>
-                        <dt>الأخصائي</dt><dd className="text-ink">{p.specialist || "—"}</dd>
-                        <dt>رفع التقارير</dt><dd className="text-ink">{p.reports || "—"}</dd>
-                      </dl>
-                    </div>
-                  ))}
-                </div>
-              </ChartCard>
-            )}
           </>
         )}
 
@@ -345,42 +357,69 @@ export function Dashboard() {
 
         <footer className="pb-4 pt-2 text-center text-[11px] text-muted">
           البيانات بتتحدث تلقائيًا كل {Math.round(REFRESH_MS / 1000)} ثانية من الشيت · رفد
+          {data && data.psych.length > 0 && ` · الفحص النفسي: ${data.psych.length} حالة (${data.psych.filter((p) => isDone(p.status)).length} مكتملة)`}
         </footer>
       </main>
     </div>
   );
 }
 
+type OptionKey = "cities" | "services" | "statuses" | "results";
+
 function FiltersBar({
   filters,
   setFilters,
   options,
-  active,
+  labels,
+  periodLabel,
+  periodDisabled = false,
 }: {
   filters: Filters;
   setFilters: (f: Filters | ((f: Filters) => Filters)) => void;
-  options: { cities: string[]; services: string[]; statuses: string[]; results: string[] };
-  active: number;
+  options: Record<OptionKey, string[]>;
+  labels: Record<OptionKey, string>;
+  periodLabel: string;
+  periodDisabled?: boolean;
 }) {
+  const active = countActive(filters);
+  const keys: OptionKey[] = ["cities", "services", "statuses", "results"];
   return (
-    <div className="card grid grid-cols-2 gap-2.5 p-3 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto_auto_auto] lg:items-center">
-      <MultiSelect label="المدينة" options={options.cities} value={filters.cities} onChange={(v) => setFilters((f) => ({ ...f, cities: v }))} />
-      <MultiSelect label="نوع الخدمة" options={options.services} value={filters.services} onChange={(v) => setFilters((f) => ({ ...f, services: v }))} />
-      <MultiSelect label="حالة الخدمة" options={options.statuses} value={filters.statuses} onChange={(v) => setFilters((f) => ({ ...f, statuses: v }))} />
-      <MultiSelect label="النتيجة" options={options.results} value={filters.results} onChange={(v) => setFilters((f) => ({ ...f, results: v }))} />
-      <label className="flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs text-muted">
+    <div className="card grid grid-cols-2 gap-2.5 p-3 md:grid-cols-4 md:items-center 2xl:grid-cols-[repeat(4,minmax(0,1fr))_auto_auto_auto_auto]">
+      {keys.map((k) => (
+        <MultiSelect key={k} label={labels[k]} options={options[k]} value={filters[k]} onChange={(v) => setFilters((f) => ({ ...f, [k]: v }))} />
+      ))}
+      <span
+        className="col-span-2 flex items-center gap-1.5 px-1 text-xs font-semibold text-refd-purple md:col-span-1"
+        title={periodDisabled ? "مافيش تواريخ في الشيت ده لسه" : undefined}
+      >
+        <Icons.calendar />
+        {periodLabel}
+      </span>
+      <label className={`flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs text-muted ${periodDisabled ? "opacity-50" : ""}`}>
         من
-        <input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} className="bg-transparent text-sm text-ink outline-none" />
+        <input
+          type="date"
+          disabled={periodDisabled}
+          value={filters.from}
+          onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+          className="bg-transparent text-sm text-ink outline-none"
+        />
       </label>
-      <label className="flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs text-muted">
+      <label className={`flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-3 text-xs text-muted ${periodDisabled ? "opacity-50" : ""}`}>
         إلى
-        <input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} className="bg-transparent text-sm text-ink outline-none" />
+        <input
+          type="date"
+          disabled={periodDisabled}
+          value={filters.to}
+          onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+          className="bg-transparent text-sm text-ink outline-none"
+        />
       </label>
       <button
         type="button"
         disabled={!active}
         onClick={() => setFilters(emptyFilters)}
-        className="col-span-2 flex h-10 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-refd-purple lg:col-span-1 transition hover:bg-refd-purple-50 disabled:text-muted/50 disabled:hover:bg-transparent"
+        className="col-span-2 flex h-10 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-refd-purple transition hover:bg-refd-purple-50 disabled:text-muted/50 disabled:hover:bg-transparent md:col-span-1"
       >
         <Icons.x />
         مسح {active > 0 && `(${active})`}
@@ -391,8 +430,8 @@ function FiltersBar({
 
 function LoadingState() {
   return (
-    <div className="grid gap-4 md:grid-cols-4">
-      {Array.from({ length: 8 }).map((_, i) => (
+    <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+      {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="card h-28 animate-pulse bg-white/60" />
       ))}
     </div>

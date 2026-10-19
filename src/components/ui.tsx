@@ -167,3 +167,27 @@ export function resultTone(result: string): Tone {
   if (result.startsWith("غير")) return "danger";
   return "warning";
 }
+
+export function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="flex items-end gap-3 pt-2">
+      <span className="mb-1 h-6 w-1.5 rounded-full bg-gradient-to-b from-refd-cyan to-refd-purple" />
+      <div>
+        <h2 className="text-base font-bold text-ink md:text-lg">{title}</h2>
+        {subtitle && <p className="text-xs text-muted">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** مكان الرسم لما البيانات المطلوبة مش موجودة في الشيت لسه */
+export function EmptyChart({ text, height = 260 }: { text: string; height?: number }) {
+  return (
+    <div
+      className="grid place-items-center rounded-2xl border border-dashed border-refd-purple-300 bg-refd-purple-50/60 p-6 text-center"
+      style={{ height }}
+    >
+      <p className="max-w-64 text-sm leading-relaxed text-muted">{text}</p>
+    </div>
+  );
+}

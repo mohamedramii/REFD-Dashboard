@@ -25,9 +25,13 @@ export const STATUS_COLORS: Record<string, string> = {
   سليم: "#1F9D6B",
   "غير مناسب": "#D6455D",
   "غير سليم": "#D6455D",
+  "بحاجة لمتابعة": "#E39A1E",
+  "بانتظار النتيجة": "#C58AD8",
 };
 
-const FONT = "IBM Plex Sans Arabic, system-ui, sans-serif";
+// next/font بيدّي الخط اسم داخلي متغير، فبنقراه من الصفحة نفسها عشان الرسوم تاخد نفس خط الداشبورد
+const FALLBACK_FONT = "Readex Pro, system-ui, sans-serif";
+const FONT = typeof document !== "undefined" ? getComputedStyle(document.body).fontFamily || FALLBACK_FONT : FALLBACK_FONT;
 
 const base: EChartsOption = {
   color: PALETTE,

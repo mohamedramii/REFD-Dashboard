@@ -95,7 +95,7 @@ body {
   margin: 10mm 0 12mm 0;
   @bottom-center {
     content: "رفد · تقرير متابعة الفحوصات  —  صفحة " counter(page) " من " counter(pages);
-    font-family: "IBM Plex Sans Arabic", sans-serif;
+    font-family: "Readex Pro", sans-serif;
     font-size: 8pt;
     color: #74627c;
   }
