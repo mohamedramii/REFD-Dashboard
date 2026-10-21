@@ -64,7 +64,10 @@ export type DashboardData = {
   issues: DataIssue[];
   // Dropdown options from the sheet (data validation), so filters show every value, even unused ones
   lists?: { family: FieldLists; children: FieldLists };
+  // Whether the children sheet has the date columns at all, so empty charts can say what is missing
+  childColumns?: ChildDateColumns;
   error?: string;
 };
 
 export type FieldLists = { services: string[]; statuses: string[]; results: string[]; cities: string[] };
+export type ChildDateColumns = { received: boolean; result: boolean };

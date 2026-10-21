@@ -12,17 +12,18 @@ import {
   type Filters,
   type Granularity,
   filtersToQuery,
-  isDone,
   label,
   PENDING_RESULT,
+  resultGroup,
   shortService,
   uniq,
 } from "@/lib/analytics";
+import type { ChildDateColumns } from "@/lib/types";
 import { Chart } from "./charts/Chart";
 import { buildChildCharts, buildFamilyCharts } from "./charts/build";
-import { REFRESH_MS, useDashboardData } from "./useDashboardData";
+import { useDashboardData } from "./useDashboardData";
 import { Icons } from "./icons";
-import { ChartCard, EmptyChart, KpiCard, MultiSelect, SectionTitle } from "./ui";
+import { ChartCard, EmptyChart, KpiCard, MultiSelect } from "./ui";
 import { RecordsTable } from "./RecordsTable";
 import { QualityPanel } from "./QualityPanel";
 
@@ -220,7 +221,7 @@ export function Dashboard() {
               periodLabel="فترة الموعد"
             />
 
-            {/* Hints under the number only on the first card and the percentage card (client request) */}
+            {/* Hints only on the first card and the percentage cards (client request) */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
               <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} icon={<Icons.clipboard />} />
               <KpiCard label="المواعيد المحجوزة" value={fk.booked} tone="cyan" icon={<Icons.calendar />} />
@@ -232,13 +233,12 @@ export function Dashboard() {
                 progress={fk.booked ? (fk.completed / fk.booked) * 100 : 0}
               />
               <KpiCard label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={fk.suitableRate} />
-              <KpiCard label="غير مناسب" value={fk.unsuitable} tone="danger" icon={<Icons.alert />} />
-              <KpiCard label="بحاجة لمتابعة" value={fk.followUp} tone="warning" icon={<Icons.clock />} />
+              <KpiCard label="غير مناسب" value={fk.unsuitable} hint={`${fk.unsuitableRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={fk.unsuitableRate} />
+              <KpiCard label="بحاجة لمتابعة" value={fk.followUp} hint={`${fk.followUpRate}% من النتائج`} tone="warning" icon={<Icons.clock />} progress={fk.followUpRate} />
             </div>
 
-            <SectionTitle title="المستفيدين حسب الفترة" />
             <ChartCard
-              title="المواعيد المحجوزة على مدار الوقت"
+              title="المستفيدين حسب الفترة الزمنية"
               action={<GranularityToggle value={granularity} onChange={setGranularity} />}
             >
               {charts.periodHasData ? (
@@ -248,9 +248,8 @@ export function Dashboard() {
               )}
             </ChartCard>
 
-            <SectionTitle title="المدن ونوع البرنامج" />
             <div className="grid gap-5 lg:grid-cols-5">
-              <ChartCard title="المستفيدين حسب المدينة" subtitle="مقسمين حسب النتيجة" className="lg:col-span-3">
+              <ChartCard title="النتيجة حسب النطاق الجغرافي" className="lg:col-span-3">
                 <Chart option={charts.cityResult} height={300} onClickName={(n) => toggleFam("cities", n)} />
               </ChartCard>
               <ChartCard title="نوع البرنامج" className="lg:col-span-2">
@@ -262,13 +261,29 @@ export function Dashboard() {
             </ChartCard>
 
             <div className="grid gap-5 lg:grid-cols-2">
-              <ChartCard title="الفئات العمرية">
-                <Chart option={charts.ages} height={290} />
+              <ChartCard title="الفئات العمرية حسب نوع البرنامج">
+                <Chart option={charts.ageByProgram} height={290} />
               </ChartCard>
               <ChartCard title="تفاصيل النتائج">
                 <Chart option={charts.resultDetail} height={290} />
               </ChartCard>
             </div>
+
+            <ChartCard title="ملاحظات">
+              <ul className="scrollbar-thin grid max-h-[340px] gap-2 overflow-auto sm:grid-cols-2 xl:grid-cols-3">
+                {fam.filter((r) => r.notes).map((r) => (
+                  <li key={r.id} className="rounded-2xl border border-line bg-refd-purple-50/60 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">{r.name}</span>
+                      <span className={`text-[11px] font-medium ${resultTextClass(r.result)}`}>{r.result || PENDING_RESULT}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted">{r.notes}</p>
+                    <p className="mt-1 text-[11px] text-refd-purple">{shortService(r.service)}</p>
+                  </li>
+                ))}
+                {!fam.some((r) => r.notes) && <p className="text-sm text-muted">لا توجد ملاحظات</p>}
+              </ul>
+            </ChartCard>
           </>
         )}
 
@@ -288,19 +303,19 @@ export function Dashboard() {
               <KpiCard label="عدد الفحوصات" value={ck.total} hint={`${ck.services} أنواع فحص`} icon={<Icons.clipboard />} />
               <KpiCard label="المواعيد المحجوزة" value={ck.booked} tone="purple" icon={<Icons.calendar />} />
               <KpiCard label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
-              <KpiCard label="غير سليم" value={ck.unhealthy} tone="danger" icon={<Icons.alert />} />
+              <KpiCard label="غير سليم" value={ck.unhealthy} hint={`${ck.unhealthyRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={ck.unhealthyRate} />
               <KpiCard label="من الاستلام للنتيجة" value={ck.avgDuration !== null ? `${ck.avgDuration}` : "—"} tone="warning" icon={<Icons.clock />} />
             </div>
 
-            <SectionTitle title="نوع الفحص والنتيجة" />
-            <ChartCard title="المواعيد المحجوزة حسب نوع الفحص">
-              <Chart option={kidCharts.services} height={Math.max(240, ck.services * 46)} onClickName={(n) => toggleKid("services", n)} />
-            </ChartCard>
-            <ChartCard title="النتيجة حسب نوع الفحص">
-              <Chart option={kidCharts.serviceResult} height={280} />
-            </ChartCard>
+            <div className="grid gap-5 lg:grid-cols-5">
+              <ChartCard title="نوع البرنامج" className="lg:col-span-2">
+                <Chart option={kidCharts.services} height={300} onClickName={(n) => toggleKid("services", n)} />
+              </ChartCard>
+              <ChartCard title="النتيجة حسب نوع البرنامج" className="lg:col-span-3">
+                <Chart option={kidCharts.serviceResult} height={300} />
+              </ChartCard>
+            </div>
 
-            <SectionTitle title="المدينة والمدة الزمنية" />
             <div className="grid gap-5 lg:grid-cols-3">
               <ChartCard title="الحالات حسب المدينة" subtitle={ck.citiesFilled < ck.total ? `المدينة مكتوبة في ${ck.citiesFilled} من ${ck.total} حالات بس` : undefined}>
                 <Chart option={kidCharts.cities} height={260} onClickName={(n) => toggleKid("cities", n)} />
@@ -309,14 +324,14 @@ export function Dashboard() {
                 {ck.hasDurationData ? (
                   <Chart option={kidCharts.duration} height={260} />
                 ) : (
-                  <EmptyChart text="ضيفوا في شيت الأطفال عمودين «تاريخ الاستلام» و«تاريخ النتيجة»، والرسم هيظهر لوحده" />
+                  <EmptyChart text={durationHint(data.childColumns)} />
                 )}
               </ChartCard>
               <ChartCard title="الحالات حسب الفترة">
                 {kidCharts.periodHasData ? (
                   <Chart option={kidCharts.period} height={260} />
                 ) : (
-                  <EmptyChart text="محتاج تاريخ استلام أو تاريخ نتيجة لكل حالة" />
+                  <EmptyChart text={periodHint(data.childColumns)} />
                 )}
               </ChartCard>
             </div>
@@ -345,12 +360,31 @@ export function Dashboard() {
         {data && tab === "records" && <RecordsTable family={family} childRecords={children} />}
 
         <footer className="pb-4 pt-2 text-center text-[11px] text-muted">
-          البيانات بتتحدث تلقائيًا كل {Math.round(REFRESH_MS / 1000)} ثانية من الشيت · رفد
-          {data && data.psych.length > 0 && ` · الفحص النفسي: ${data.psych.length} حالة (${data.psych.filter((p) => isDone(p.status)).length} مكتملة)`}
+          جميع الحقوق محفوظة. رفد الإنسانية للخدمات التجارية © 2023
         </footer>
       </main>
     </div>
   );
+}
+
+// Missing column → ask to add it; column exists but cells are empty → ask to fill it
+function durationHint(cols?: ChildDateColumns): string {
+  if (!cols?.received || !cols?.result) {
+    return "ضيفوا في شيت الأطفال عمودين «تاريخ استلام الحالة» و«تاريخ استلام النتيجة»، والرسم هيظهر لوحده";
+  }
+  return "محتاج تعبئة «تاريخ استلام الحالة» و«تاريخ استلام النتيجة» للحالات في شيت الأطفال";
+}
+
+function periodHint(cols?: ChildDateColumns): string {
+  if (!cols?.received && !cols?.result) {
+    return "ضيفوا في شيت الأطفال عمود «تاريخ استلام الحالة» أو «تاريخ استلام النتيجة»";
+  }
+  return "محتاج تعبئة تاريخ الاستلام أو تاريخ النتيجة للحالات في شيت الأطفال";
+}
+
+function resultTextClass(result: string): string {
+  const g = resultGroup(result);
+  return g === "مناسب" ? "text-success" : g === "غير مناسب" ? "text-danger" : "text-warning";
 }
 
 function GranularityToggle({ value, onChange }: { value: Granularity; onChange: (g: Granularity) => void }) {

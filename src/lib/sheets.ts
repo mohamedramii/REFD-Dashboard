@@ -10,7 +10,7 @@ import {
   SHEET_LABELS,
   type RawSheet,
 } from "./normalize";
-import type { DashboardData, DataIssue, FieldLists } from "./types";
+import type { ChildDateColumns, DashboardData, DataIssue, FieldLists } from "./types";
 
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
 const CACHE_SECONDS = Number(process.env.SHEET_CACHE_SECONDS ?? 30);
@@ -192,14 +192,16 @@ function build(
   source: DashboardData["source"],
 ): DashboardData {
   const issues: DataIssue[] = [];
+  const childColumns: ChildDateColumns = { received: false, result: false };
   return {
     source,
     fetchedAt: new Date().toISOString(),
     family: normalizeFamily(raw.family, issues),
-    children: normalizeChildren(raw.children, issues),
+    children: normalizeChildren(raw.children, issues, childColumns),
     psych: normalizePsych(raw.psych),
     issues,
     lists: raw.lists,
+    childColumns,
   };
 }
 

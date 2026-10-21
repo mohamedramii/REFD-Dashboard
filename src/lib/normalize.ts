@@ -1,4 +1,5 @@
 import type {
+  ChildDateColumns,
   ChildRecord,
   DataIssue,
   FamilyRecord,
@@ -218,7 +219,7 @@ export function normalizeFamily(rows: RawSheet, issues: DataIssue[]): FamilyReco
   return out;
 }
 
-export function normalizeChildren(rows: RawSheet, issues: DataIssue[]): ChildRecord[] {
+export function normalizeChildren(rows: RawSheet, issues: DataIssue[], columns?: ChildDateColumns): ChildRecord[] {
   const sheet = SHEET_LABELS.children;
   const headerRow = findHeaderRow(rows, ["الاسم"]);
   const headers = (rows[headerRow] ?? []).map((c) => normalizeArabic(text(c)));
@@ -238,6 +239,10 @@ export function normalizeChildren(rows: RawSheet, issues: DataIssue[]): ChildRec
     guardian: (h) => h.includes("الحاضنه"),
     name: (h) => h === "الاسم",
   });
+  if (columns) {
+    columns.received = col.receivedDate >= 0;
+    columns.result = col.resultDate >= 0;
+  }
 
   const out: ChildRecord[] = [];
   rows.slice(headerRow + 1).forEach((row, i) => {

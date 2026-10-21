@@ -181,6 +181,8 @@ export function familyKpis(rows: FamilyRecord[], refDate = "") {
     unsuitable: g("غير مناسب"),
     followUp: g("بحاجة لمتابعة"),
     suitableRate: pct(suitable, completed.length),
+    unsuitableRate: pct(g("غير مناسب"), completed.length),
+    followUpRate: pct(g("بحاجة لمتابعة"), completed.length),
     avgTurnaround: avg(turnaround),
     avgAge: avg(familyAges(rows, refDate)),
     cities: new Set(rows.map((r) => r.city).filter(Boolean)).size,
@@ -206,6 +208,7 @@ export function childKpis(rows: ChildRecord[]) {
     healthy,
     unhealthy: withResult.length - healthy,
     healthyRate: pct(healthy, withResult.length),
+    unhealthyRate: pct(withResult.length - healthy, withResult.length),
     withNotes: rows.filter((r) => r.notes).length,
     hospitals: new Set(rows.map((r) => r.hospital).filter(Boolean)).size,
     citiesFilled: rows.filter((r) => r.city).length,
@@ -227,6 +230,17 @@ export type Granularity = "month" | "year";
 
 export function periodKeyBy(granularity: Granularity): (iso: string) => string {
   return granularity === "year" ? (iso) => iso.slice(0, 4) : (iso) => iso.slice(0, 7);
+}
+
+/** Every month from January of the first year to December of the last year, so empty months still show */
+export function fullYearMonths(keys: string[]): string[] {
+  if (!keys.length) return [];
+  const years = keys.map((k) => Number(k.slice(0, 4)));
+  const out: string[] = [];
+  for (let y = Math.min(...years); y <= Math.max(...years); y++) {
+    for (let m = 1; m <= 12; m++) out.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  return out;
 }
 
 const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];

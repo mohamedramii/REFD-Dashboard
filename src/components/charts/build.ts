@@ -6,6 +6,7 @@ import {
   daysBetween,
   familyAges,
   familyKpis,
+  fullYearMonths,
   isDone,
   label,
   matrix,
@@ -52,15 +53,22 @@ function periodStack<T>(
   const dated = rows.filter((r) => date(r));
   // Without granularity: by day or by month depending on the range
   const keyOf = granularity ? periodKeyBy(granularity) : periodKey(dated.map((r) => date(r)!));
-  const keys = uniq(dated.map((r) => keyOf(date(r)!))).sort();
+  const present = uniq(dated.map((r) => keyOf(date(r)!))).sort();
+  const keys = granularity === "month" ? fullYearMonths(present) : present;
   const option = stackedBar(
-    keys.map(periodLabel),
+    // Month on one line and year under it, so a full year of months fits
+    keys.map((k) => (granularity === "month" ? periodLabel(k).replace(" ", "\n") : periodLabel(k))),
     groups.map((g, i) => ({
       name: g,
       data: keys.map((k) => dated.filter((r) => keyOf(date(r)!) === k && group(r) === g).length),
       color: colors?.[g] ?? PALETTE[i % PALETTE.length],
     })),
   );
+  if (granularity === "month") {
+    // On narrow screens skip labels that would overlap instead of drawing them on top of each other
+    const x = option.xAxis as { axisLabel?: Record<string, unknown> };
+    x.axisLabel = { ...x.axisLabel, interval: "auto", hideOverlap: true, width: undefined, overflow: undefined };
+  }
   return { option, hasData: dated.length > 0, missing: rows.length - dated.length };
 }
 
@@ -211,7 +219,7 @@ export function buildChildCharts(children: ChildRecord[], refDate: string) {
 
   return {
     results: donut(countBy(children, (c) => c.result || PENDING_RESULT), "طفل", true),
-    services: horizontalBar(countBy(children, (c) => c.service), PALETTE[0], 24),
+    services: donut(countBy(children, (c) => c.service), "فحص", false, true),
     serviceResult,
     cities: horizontalBar(countBy(children, (c) => c.city), PALETTE[1], 20),
     hospitals: horizontalBar(countBy(children, (c) => c.hospital), PALETTE[1], 22),
