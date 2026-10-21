@@ -5,7 +5,7 @@ import type { DashboardData } from "@/lib/types";
 
 export const REFRESH_MS = Number(process.env.NEXT_PUBLIC_REFRESH_SECONDS ?? 60) * 1000;
 
-/** يجيب البيانات من /api/data، ويحدّثها كل REFRESH_MS طالما التاب ظاهر (live=false يوقف التحديث). */
+/** Fetches data from /api/data and refreshes it every REFRESH_MS while the tab is visible (live=false stops refreshing). */
 export function useDashboardData(live = true) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);

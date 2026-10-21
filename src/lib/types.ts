@@ -1,4 +1,4 @@
-// أنواع البيانات بعد التنظيف. أرقام الهوية والجوال لا تخرج من السيرفر أبدًا.
+// Data types after cleaning. ID and phone numbers never leave the server.
 
 export type FamilyRecord = {
   id: string;
@@ -28,7 +28,7 @@ export type ChildRecord = {
   result: string;
   notes: string;
   guardian: string;
-  // أعمدة اختيارية: لو العميل ضافها في الشيت، مؤشر "المدة من الاستلام للنتيجة" بيشتغل لوحده
+  // Optional columns: if the client adds them to the sheet, the "receipt to result" duration KPI works automatically
   receivedDate: string | null;
   resultDate: string | null;
 };

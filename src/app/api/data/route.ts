@@ -1,6 +1,6 @@
 import { getDashboardData } from "@/lib/sheets";
 
-// قراءة request.url بتخلي الراوت ديناميكي، فبيتنفذ مع كل طلب من غير كاش من Next
+// Reading request.url makes the route dynamic, so it runs on every request without Next caching
 
 export async function GET(request: Request) {
   const force = new URL(request.url).searchParams.get("force") === "1";

@@ -2,14 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { Readex_Pro } from "next/font/google";
 import "./globals.css";
 
-// Readex Pro: خط عربي حديث وأرقامه واضحة، مناسب للمؤشرات والرسوم
+// Readex Pro: a modern Arabic font with clear numerals, suited to KPIs and charts
 const arabic = Readex_Pro({
   variable: "--font-arabic",
   subsets: ["arabic", "latin"],
   weight: ["300", "400", "500", "600", "700"],
 });
 
-// رابط الموقع الأساسي لصور المشاركة: من متغير بيئة، أو رابط Vercel تلقائيًا
+// Base site URL for share images: from an env variable, or the Vercel URL automatically
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
   (process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     title: "رفد | لوحة متابعة الفحوصات",
     description,
   },
-  // اللوحة فيها بيانات صحية خاصة، فممنوع محركات البحث تفهرسها
+  // The dashboard holds private health data, so search engines must not index it
   robots: {
     index: false,
     follow: false,

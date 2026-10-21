@@ -28,7 +28,7 @@ const maskName = (n: string) => (n ? `${n[0]}•••` : "—");
 export function ReportView() {
   const params = useSearchParams();
   const filters = useMemo(() => filtersFromQuery(params), [params]);
-  // التقرير لقطة ثابتة: بيتحمّل مرة واحدة من غير تحديث تلقائي
+  // The report is a fixed snapshot: loaded once with no auto-refresh
   const { data } = useDashboardData(false);
 
   const [hideNames, setHideNames] = useState(false);
@@ -36,7 +36,7 @@ export function ReportView() {
   const [withQuality, setWithQuality] = useState(true);
   const [ready, setReady] = useState(false);
 
-  // مهلة صغيرة بعد وصول البيانات، عشان ECharts يخلص رسم كل الرسوم قبل الطباعة
+  // Short delay after data arrives so ECharts finishes drawing every chart before printing
   useEffect(() => {
     if (!data) return;
     const t = setTimeout(() => setReady(true), 1200);
@@ -85,12 +85,12 @@ export function ReportView() {
   }
 
   const issued = fmtLong(data.fetchedAt);
-  // رقم القسم في هيدر كل صفحة (جودة البيانات اختيارية فبتأثر على رقم السجلات)
+  // Section number in each page header (data quality is optional, so it shifts the records number)
   const recordsNo = withQuality ? 6 : 5;
 
   return (
     <div className="report-root refd-backdrop min-h-screen pb-10">
-      {/* ---------- شريط التحكم (مش بيتطبع) ---------- */}
+      {/* ---------- Toolbar (not printed) ---------- */}
       <div className="no-print sticky top-0 z-40 mb-8 border-b border-line bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-4 py-3">
           <div className="flex-1">
@@ -112,7 +112,7 @@ export function ReportView() {
         </div>
       </div>
 
-      {/* ---------- الغلاف ---------- */}
+      {/* ---------- Cover ---------- */}
       <section className="sheet cover">
         <div className="relative h-[168mm] overflow-hidden bg-gradient-to-br from-[#8B2FA8] via-refd-purple to-[#3E0D4D] px-[16mm] pt-[18mm] text-white">
           <span className="absolute -top-[30mm] -left-[26mm] size-[105mm] rounded-full border-[13mm] border-refd-cyan/90" />
@@ -159,7 +159,7 @@ export function ReportView() {
         </div>
       </section>
 
-      {/* ---------- الملخص التنفيذي ---------- */}
+      {/* ---------- Executive summary ---------- */}
       <Sheet n={1} title="الملخص التنفيذي" subtitle="أهم المؤشرات والملاحظات">
         <div className="grid grid-cols-4 gap-[3mm]">
           <Kpi label="الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} />
@@ -206,7 +206,7 @@ export function ReportView() {
         </div>
       </Sheet>
 
-      {/* ---------- التوزيع ---------- */}
+      {/* ---------- Distribution ---------- */}
       <Sheet n={2} title="توزيع الفحوصات" subtitle="حسب المدينة والحي ونوع الخدمة">
         <Block title="الفحوصات حسب المدينة ونوع الخدمة">
           <Chart still option={charts.byCityStack} height={235} />
@@ -229,7 +229,7 @@ export function ReportView() {
         </div>
       </Sheet>
 
-      {/* ---------- المسار والزمن ---------- */}
+      {/* ---------- Flow and timing ---------- */}
       <Sheet n={3} title="مسار الحالات والزمن" subtitle="العلاقة بين المدينة والخدمة والنتيجة، وسرعة الإنجاز">
         <Block title="مسار الحالات: المدينة ← نوع الخدمة ← النتيجة">
           <Chart still option={charts.sankey} height={290} />
@@ -252,7 +252,7 @@ export function ReportView() {
         </div>
       </Sheet>
 
-      {/* ---------- الأطفال ---------- */}
+      {/* ---------- Children ---------- */}
       <Sheet n={4} title="فحص الأطفال قبل الاستلام" subtitle={`${ck.total} طفل في ${ck.hospitals} مستشفى`}>
         <div className="grid grid-cols-4 gap-[3mm]">
           <Kpi label="إجمالي الأطفال" value={ck.total} />
@@ -308,7 +308,7 @@ export function ReportView() {
         )}
       </Sheet>
 
-      {/* ---------- جودة البيانات ---------- */}
+      {/* ---------- Data quality ---------- */}
       {withQuality && (
         <Sheet n={5} title="جودة البيانات" subtitle="نسبة اكتمال الحقول، والملاحظات برقم الصف في الشيت" flow>
           <div className="grid grid-cols-5 gap-[3mm]">
@@ -358,7 +358,7 @@ export function ReportView() {
         </Sheet>
       )}
 
-      {/* ---------- السجلات ---------- */}
+      {/* ---------- Records ---------- */}
       {withRecords && (
         <Sheet n={recordsNo} title="سجل الفحوصات" subtitle={`${family.length} فحص أسري${hideNames ? " · الأسماء مخفية" : ""}`} flow>
           <table className="report-table w-full text-[8.3pt]">

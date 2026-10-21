@@ -22,7 +22,7 @@ export const emptyFilters: Filters = {
 
 const FILTER_KEYS = ["cities", "services", "statuses", "results"] as const;
 
-/** الفلاتر ← query string، عشان التقرير يتفتح بنفس اختيارات الداشبورد */
+/** Filters → query string, so the report opens with the same selections as the dashboard */
 export function filtersToQuery(f: Filters): string {
   const p = new URLSearchParams();
   FILTER_KEYS.forEach((k) => f[k].forEach((v) => p.append(k, v)));
@@ -51,8 +51,8 @@ export const RESULT_GROUPS = ["مناسب", "غير مناسب", "بحاجة ل�
 export type ResultGroup = (typeof RESULT_GROUPS)[number];
 
 /**
- * النتايج في الشيت أكتر من قيمتين ("مناسبة للتحفيز"، "لا يوصي بالتحفيز"، "بحاجة لجلسات دعم"...)
- * فبنجمعها في 3 مجموعات ثابتة عشان المؤشرات والألوان ماتتغيرش مع كل قيمة جديدة.
+ * The sheet has more than two result values ("مناسبة للتحفيز", "لا يوصي بالتحفيز", "بحاجة لجلسات دعم"...),
+ * so they are grouped into 3 fixed groups to keep KPIs and colors stable as new values appear.
  */
 export function resultGroup(result: string): ResultGroup {
   const r = result.trim();
@@ -74,7 +74,7 @@ export function label(value: string): string {
   return value || UNKNOWN;
 }
 
-/** الموعد المحجوز = الصف اللي فيه تاريخ نتيجة (حسب تعريف العميل)، والفلتر الزمني بيمشي عليه */
+/** A booked appointment = a row with a result date (the client's definition); the period filter uses it */
 export function applyFamilyFilters(rows: FamilyRecord[], f: Filters): FamilyRecord[] {
   return rows.filter((r) => {
     if (f.cities.length && !f.cities.includes(label(r.city))) return false;
@@ -87,7 +87,7 @@ export function applyFamilyFilters(rows: FamilyRecord[], f: Filters): FamilyReco
   });
 }
 
-/** تاريخ الطفل المستخدم في فلتر الفترة: تاريخ النتيجة، ولو مش موجود تاريخ الاستلام */
+/** Child date used by the period filter: the result date, falling back to the received date */
 export const childDate = (c: ChildRecord) => c.resultDate ?? c.receivedDate ?? null;
 
 export function applyChildFilters(rows: ChildRecord[], f: Filters): ChildRecord[] {
@@ -147,7 +147,7 @@ export function pct(part: number, total: number): number {
 
 const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((s, x) => s + x, 0) / xs.length) * 10) / 10 : null);
 
-/** العمر وقت الموعد (تاريخ النتيجة)، ولو مش موجود وقت آخر تحديث للبيانات */
+/** Age at the appointment (result date), falling back to the last data refresh */
 export function familyAges(rows: FamilyRecord[], refDate: string): number[] {
   return rows
     .filter((r) => r.birthDate && (r.resultDate || r.labDate || refDate))
@@ -200,7 +200,7 @@ export function childKpis(rows: ChildRecord[]) {
   return {
     total: rows.length,
     beforeReceipt: rows.filter((r) => isBeforeReceipt(r.service)).length,
-    // عمود الخدمة (H) = نوع الفحص، وكل صف فيه خدمة = موعد محجوز
+    // Service column (H) = test type, and every row with a service = a booked appointment
     booked: rows.filter((r) => r.service).length,
     services: new Set(rows.map((r) => r.service).filter(Boolean)).size,
     healthy,
@@ -216,7 +216,7 @@ export function childKpis(rows: ChildRecord[]) {
   };
 }
 
-/** يجمّع التواريخ بالشهر لو المدى أكبر من شهرين، وإلا باليوم */
+/** Groups dates by month when the range exceeds two months, otherwise by day */
 export function periodKey(dates: string[]): (iso: string) => string {
   const sorted = [...dates].sort();
   const span = sorted.length ? daysBetween(sorted[0], sorted[sorted.length - 1]) : 0;
@@ -238,7 +238,7 @@ export function periodLabel(key: string): string {
   return y;
 }
 
-/** روابط Sankey: المدينة ← نوع الخدمة ← النتيجة */
+/** Sankey links: city → service type → result */
 export function sankeyCityServiceResult(rows: FamilyRecord[]) {
   const links = new Map<string, number>();
   const add = (s: string, t: string) => links.set(`${s}→${t}`, (links.get(`${s}→${t}`) ?? 0) + 1);

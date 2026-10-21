@@ -3,7 +3,7 @@ import type { ChildRecord, DataIssue, FamilyRecord } from "./types";
 
 export type Insight = { tone: "good" | "warn" | "info"; text: string };
 
-/** ملاحظات مكتوبة تلقائيًا من البيانات، للملخص التنفيذي في التقرير */
+/** Notes generated automatically from the data, for the report's executive summary */
 export function buildInsights(family: FamilyRecord[], children: ChildRecord[], issues: DataIssue[]): Insight[] {
   const out: Insight[] = [];
   const fk = familyKpis(family);

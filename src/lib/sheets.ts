@@ -75,7 +75,7 @@ async function getAccessToken(email: string, key: string): Promise<string> {
   return json.access_token;
 }
 
-/** يجيب أسماء الشيتات الفعلية ويطابقها بشكل تقريبي (همزات، مسافات زيادة، تاء مربوطة). */
+/** Fetches the actual tab names and matches them loosely (hamza, extra spaces, taa marbuta). */
 async function resolveTabs(cfg: NonNullable<ReturnType<typeof config>>, token: string) {
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?fields=sheets.properties.title`,
@@ -104,7 +104,7 @@ async function fetchGoogleSheets(cfg: NonNullable<ReturnType<typeof config>>) {
   if (!tabs.family) {
     throw new Error(`مالقيتش شيت فحوصات الأسرة. الشيتات الموجودة: ${tabs.titles.join("، ")}`);
   }
-  // الشيتات اللي مش موجودة بترجع فاضية بدل ما توقع الطلب كله
+  // Missing tabs come back empty instead of failing the whole request
   const wanted = [tabs.family, tabs.children, tabs.psych];
   const present = wanted.filter((t): t is string => Boolean(t));
   const ranges = present.map((t) => `'${t.replace(/'/g, "''")}'!A1:Z2000`);
@@ -205,7 +205,7 @@ function build(
 
 let dataCache: { data: DashboardData; at: number } | null = null;
 
-/** طلب واحد لـ Google كل CACHE_SECONDS مهما كان عدد اللي فاتحين الداشبورد. */
+/** One request to Google every CACHE_SECONDS, however many people have the dashboard open. */
 export async function getDashboardData(force = false): Promise<DashboardData> {
   const cfg = config();
   if (!cfg) return build({ family: demoFamily, children: demoChildren, psych: demoPsych, lists: demoLists }, "demo");
@@ -219,7 +219,7 @@ export async function getDashboardData(force = false): Promise<DashboardData> {
     return data;
   } catch (err) {
     const message = err instanceof Error ? err.message : "خطأ غير معروف";
-    // لو Google وقع، نعرض آخر نسخة ناجحة بدل شاشة فاضية
+    // If Google fails, show the last successful copy instead of an empty screen
     if (dataCache) return { ...dataCache.data, error: message };
     return { ...build({ family: [], children: [], psych: [] }, "google"), error: message };
   }

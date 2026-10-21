@@ -181,7 +181,7 @@ export function SectionTitle({ title, subtitle }: { title: string; subtitle?: st
   );
 }
 
-/** مكان الرسم لما البيانات المطلوبة مش موجودة في الشيت لسه */
+/** Chart placeholder for when the required data is not in the sheet yet */
 export function EmptyChart({ text, height = 260 }: { text: string; height?: number }) {
   return (
     <div

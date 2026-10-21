@@ -1,7 +1,7 @@
 import type { RawSheet } from "./normalize";
 
-// بيانات وهمية بنفس شكل الشيت (أسماء وأرقام مخترعة)، بتُستخدم لحد ما يتضاف مفتاح Google.
-// بتعدي على نفس خطوات التنظيف بتاعة البيانات الحقيقية، بما فيها الخلايا المدموجة والتواريخ الغلط.
+// Demo data shaped like the sheet (made-up names and numbers), used until a Google key is added.
+// It goes through the same cleaning steps as real data, including merged cells and bad dates.
 
 const MOTHER = "التحقق الصحي للأسرة ( الأم )";
 const FATHER = "التحقق الصحي للأسرة ( الأب )";
@@ -17,7 +17,7 @@ const familyHeader = [
 
 type FamilySeed = [string, string, string, string, string, string, string, string, string, string];
 
-// [الأسرة, الاسم, الميلاد, المدينة, الحي, الخدمة, الحالة, النتيجة, تاريخ الفحوصات, تاريخ النتيجة]
+// [family, name, birth date, city, district, service, status, result, lab date, result date]
 const familySeeds: FamilySeed[] = [
   ["1", "سارة", "12/3/1985", "القصيم", "بريدة", MOTHER, DONE, "مناسب", "4/1/2026", "8/1/2026"],
   ["", "خالد", "2/9/1982", "القصيم", "بريدة", FATHER, DONE, "مناسب", "4/1/2026", "8/1/2026"],
@@ -60,7 +60,7 @@ const childHeader = [
 ];
 
 const kidService = "فحص الأطفال قبل الاستلام";
-// [الاسم, الميلاد, المستشفى, النتيجة, ملاحظات, الحالة]
+// [name, birth date, hospital, result, notes, status]
 const childSeeds: [string, string, string, string, string, string][] = [
   ["آدم", "30/10/2025", "مستشفى الولادة والأطفال بتبوك", "سليم", "", DONE],
   ["إياد", "16/7/2025", "مستشفى القطيف المركزي", "سليم", "حامل لصفة الثلاسيميا", DONE],

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* ألوان هوية رفد مأخوذة من اللوجو: البنفسجي الأساسي والسماوي */
+/* REFD brand colors taken from the logo: primary purple and cyan */
 :root {
   --refd-purple: #741b8d;
   --refd-purple-600: #8b2fa8;
@@ -50,7 +50,7 @@ body {
   font-family: var(--font-arabic), system-ui, sans-serif;
 }
 
-/* الخلفية: دواير خفيفة بتلمّح لشكل اللوجو */
+/* Background: soft circles hinting at the logo shape */
 .refd-backdrop {
   background:
     radial-gradient(circle at 92% -10%, rgba(11, 200, 242, 0.16) 0, transparent 32%),
@@ -87,9 +87,9 @@ body {
   animation: pulse-ring 1.6s ease-out infinite;
 }
 
-/* ---------------- تقرير الطباعة ---------------- */
+/* ---------------- Print report ---------------- */
 
-/* صفحات A4. الغلاف من غير هوامش، وباقي الصفحات فيها مساحة لترقيم الصفحات */
+/* A4 pages. The cover has no margins; the other pages leave room for page numbers */
 @page {
   size: A4 portrait;
   margin: 10mm 0 12mm 0;
@@ -100,8 +100,8 @@ body {
     color: #74627c;
   }
 }
-/* الغلاف دايمًا أول ورقة، فبنشيل هوامشه بـ :first.
-   (الـ named page كانت بتعمل فاصل صفحات قبل الغلاف وتطلع ورقة فاضية في الأول) */
+/* The cover is always the first sheet, so its margins are removed with :first.
+   (A named page forced a page break before the cover and printed a blank first sheet) */
 @page :first {
   margin: 0;
   @bottom-center { content: none; }
@@ -128,7 +128,7 @@ body {
   height: 297mm;
   padding: 0;
 }
-/* صفحة الجدول بتتمد على أكتر من ورقة، فمينفعش تتقص */
+/* The table page spans several sheets, so it must not be clipped */
 .sheet.flow {
   min-height: 0;
   overflow: visible;

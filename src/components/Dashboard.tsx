@@ -33,7 +33,7 @@ const TABS = [
   { id: "records", label: "السجلات" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
-// التبويبين اللي طلبهم العميل ظاهرين، وجودة البيانات والسجلات متخفيين لحد ما يتطلبوا
+// Only the two tabs the client asked for are shown; data quality and records stay hidden until requested
 const VISIBLE_TABS: TabId[] = ["family", "children"];
 
 function timeAgo(iso: string, now: number) {
@@ -73,7 +73,7 @@ export function Dashboard() {
     };
   }, []);
 
-  // تاريخ مرجعي لحساب الأعمار: وقت آخر جلب للبيانات
+  // Reference date for ages: the time of the last data fetch
   const refDate = data?.fetchedAt.slice(0, 10) ?? "";
 
   const family = useMemo(() => data?.family ?? [], [data]);
@@ -130,7 +130,7 @@ export function Dashboard() {
 
   return (
     <div className="refd-backdrop min-h-screen">
-      {/* ---------- الهيدر ---------- */}
+      {/* ---------- Header ---------- */}
       <header className="sticky top-0 z-40 border-b border-line/70 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1500px] items-center gap-4 px-4 py-3 md:px-8">
           <Image src="/refd-logo.png" alt="رفد" width={1213} height={646} priority className="h-12 w-auto" />
@@ -209,7 +209,7 @@ export function Dashboard() {
 
         {!data && <LoadingState />}
 
-        {/* ================= لوحة الأسر ================= */}
+        {/* ================= Family board ================= */}
         {data && tab === "family" && (
           <>
             <FiltersBar
@@ -220,6 +220,7 @@ export function Dashboard() {
               periodLabel="فترة الموعد"
             />
 
+            {/* Hints under the number only on the first card and the percentage card (client request) */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
               <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} icon={<Icons.clipboard />} />
               <KpiCard label="المواعيد المحجوزة" value={fk.booked} tone="cyan" icon={<Icons.calendar />} />
@@ -271,7 +272,7 @@ export function Dashboard() {
           </>
         )}
 
-        {/* ================= لوحة الأطفال ================= */}
+        {/* ================= Children board ================= */}
         {data && tab === "children" && (
           <>
             <FiltersBar

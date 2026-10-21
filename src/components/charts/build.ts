@@ -35,7 +35,7 @@ import {
   treemap,
 } from "./options";
 
-// إعدادات الرسوم مشتركة بين الداشبورد وتقرير الطباعة، عشان الأرقام تبقى واحدة في الاتنين
+// Chart options are shared by the dashboard and the print report so both show the same numbers
 
 const AGE_EDGES = [0, 18, 30, 40, 50, 200];
 const AGE_LABELS = ["أقل من 18", "18–29", "30–39", "40–49", "50+"];
@@ -110,7 +110,7 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
 
   const ageBuckets = bucket(familyAges(filtered, refDate), AGE_EDGES, AGE_LABELS);
 
-  // العمر × نوع البرنامج: مين بيستفيد من أنهي برنامج
+  // Age × program type: who benefits from which program
   const ageOf = (r: FamilyRecord) => familyAges([r], refDate)[0];
   const ageGroupOf = (r: FamilyRecord) => {
     const a = ageOf(r);
@@ -142,7 +142,7 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     (x) => `${x.n} أفراد`,
   ).sort((a, b) => a.name.localeCompare(b.name, "ar"));
 
-  // مقارنة المدن على أكتر من مؤشر في نفس الوقت
+  // Compare cities across several metrics at once
   const topCities = countBy(filtered, (r) => r.city).slice(0, 4);
   const radarIndicators = [
     { name: "الفحوصات", max: Math.max(1, ...topCities.map((c) => c.value)) },

@@ -14,7 +14,7 @@ export const SHEET_LABELS = {
   psych: "الفحص النفسي",
 } as const;
 
-/** يوحّد الكتابة العربية عشان مطابقة العناوين ماتتأثرش بالهمزات والتاء المربوطة. */
+/** Normalizes Arabic spelling so header matching ignores hamza and taa marbuta variants. */
 export function normalizeArabic(value: string): string {
   return value
     .replace(/[ً-ْـ]/g, "")
@@ -50,7 +50,7 @@ function toIso(y: number, m: number, d: number): string | null {
   return date.toISOString().slice(0, 10);
 }
 
-/** يقبل الرقم التسلسلي بتاع Sheets، أو نص بصيغة يوم/شهر/سنة أو سنة/شهر/يوم. */
+/** Accepts a Sheets serial number, or text as day/month/year or year/month/day. */
 export function parseDate(value: unknown): ParsedDate {
   if (value === null || value === undefined || value === "") return { iso: null };
   if (typeof value === "number") {
@@ -77,7 +77,7 @@ export function parseDate(value: unknown): ParsedDate {
   if (y < 1600) return { iso: null, problem: `تاريخ هجري "${s}" يحتاج تحويل للميلادي` };
   const iso = toIso(y, m, d);
   if (!iso) {
-    // احتمال الصيغة شهر/يوم
+    // Possibly month/day format
     [a, b, c] = [m, d, y];
     const swapped = toIso(c, b, a);
     if (swapped) return { iso: swapped };
@@ -123,7 +123,7 @@ export function normalizeFamily(rows: RawSheet, issues: DataIssue[]): FamilyReco
   const sheet = SHEET_LABELS.family;
   const headerRow = findHeaderRow(rows, ["الاسم"]);
   const headers = (rows[headerRow] ?? []).map((c) => normalizeArabic(text(c)));
-  // الترتيب مهم: الحقول الأدق الأول عشان "تاريخ النتيجة" مايتاخدش كـ "النتيجة"
+  // Order matters: more specific fields first so "تاريخ النتيجة" is not taken as "النتيجة"
   const col = mapColumns(headers, {
     resultDate: (h) => h.includes("تاريخ") && h.includes("النتيجه"),
     labDate: (h) => h.includes("الفحوصات") || h.includes("المخبريه"),
@@ -147,7 +147,7 @@ export function normalizeFamily(rows: RawSheet, issues: DataIssue[]): FamilyReco
     const name = text(cell(row, col.name));
     if (!name) return;
 
-    // الخلايا المدموجة بترجع قيمة في أول صف بس، فبنكمّل رقم الأسرة للصفوف اللي بعده
+    // Merged cells return a value in the first row only, so the family number is carried down to the following rows
     const rawFamily = text(cell(row, col.family));
     const family = rawFamily || lastFamily;
     if (rawFamily) lastFamily = rawFamily;
@@ -204,7 +204,7 @@ export function normalizeFamily(rows: RawSheet, issues: DataIssue[]): FamilyReco
     out.push(record);
   });
 
-  // رقم طلب متكرر لأكثر من شخص
+  // Request number repeated for more than one person
   const seen = new Map<string, number>();
   out.forEach((r) => {
     if (!r.requestNo || !/^[A-Za-z]{2,}\d+$/.test(r.requestNo)) return;
@@ -223,7 +223,7 @@ export function normalizeChildren(rows: RawSheet, issues: DataIssue[]): ChildRec
   const headerRow = findHeaderRow(rows, ["الاسم"]);
   const headers = (rows[headerRow] ?? []).map((c) => normalizeArabic(text(c)));
   const col = mapColumns(headers, {
-    // الأعمدة الاختيارية الأول عشان "تاريخ النتيجة" مايتاخدش كـ "النتيجة"
+    // Optional columns first so "تاريخ النتيجة" is not taken as "النتيجة"
     resultDate: (h) => h.includes("تاريخ") && h.includes("النتيجه"),
     // Matches both "تاريخ الاستلام" and "تاريخ استلام الحالة", but not "تاريخ استلام النتيجة"
     receivedDate: (h) => h.includes("استلام") && !h.includes("قبل") && !h.includes("النتيجه"),
@@ -304,7 +304,7 @@ export function normalizePsych(rows: RawSheet): PsychRecord[] {
     service: (h) => h.includes("الخدمه"),
     reports: (h) => h.includes("التقارير"),
   });
-  // عمود العمر في الشيت أحيانًا من غير عنوان، وبييجي بعد عمود الحالة مباشرة
+  // The age column sometimes has no header and comes right after the status column
   const ageIdx = col.age >= 0 ? col.age : col.caseType >= 0 ? col.caseType + 1 : -1;
 
   const out: PsychRecord[] = [];

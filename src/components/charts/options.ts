@@ -146,7 +146,7 @@ export function sankey(data: { nodes: { name: string }[]; links: { source: strin
           return {
             ...n,
             itemStyle: { color: colorFor(n.name), borderWidth: 0 },
-            // المدن على الطرف الشمال، فاسمها يتكتب برّه العمود عشان مايتغطاش بالخطوط
+            // Cities sit on the left edge, so their names are drawn outside the column to avoid being covered by the lines
             label: isCity ? { position: "left" as const } : undefined,
           };
         }),
@@ -289,7 +289,7 @@ export function gauge(value: number, label: string, color = "#741B8D"): EChartsO
           color: "#2A1033",
           formatter: "{value}%",
         },
-        // علامة RLM عشان النص المختلط (أرقام + عربي) يتقري صح جوه الحاوية LTR
+        // RLM mark so mixed text (numbers + Arabic) reads correctly inside the LTR container
         data: [{ value, name: `‏${label}` }],
       },
     ],

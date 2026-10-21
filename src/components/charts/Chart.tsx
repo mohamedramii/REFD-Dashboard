@@ -8,7 +8,7 @@ const ReactECharts = dynamic(() => import("echarts-for-react"), {
   loading: () => <div className="h-full w-full animate-pulse rounded-2xl bg-refd-purple-50" />,
 });
 
-// ترتيب الألوان: البنفسجي والسماوي الأول، وبعدها درجاتهم
+// Color order: purple and cyan first, then their shades
 export const PALETTE = [
   "#741B8D",
   "#0BC8F2",
@@ -29,7 +29,7 @@ export const STATUS_COLORS: Record<string, string> = {
   "بانتظار النتيجة": "#C58AD8",
 };
 
-// next/font بيدّي الخط اسم داخلي متغير، فبنقراه من الصفحة نفسها عشان الرسوم تاخد نفس خط الداشبورد
+// next/font gives the font a generated internal name, so read it from the page so charts use the dashboard font
 const FALLBACK_FONT = "Readex Pro, system-ui, sans-serif";
 const FONT = typeof document !== "undefined" ? getComputedStyle(document.body).fontFamily || FALLBACK_FONT : FALLBACK_FONT;
 
@@ -50,13 +50,13 @@ type Props = {
   option: EChartsOption;
   height?: number;
   onClickName?: (name: string) => void;
-  /** للطباعة: من غير أنيميشن عشان الرسمة تبقى كاملة لحظة الطباعة */
+  /** For printing: no animation, so the chart is complete at print time */
   still?: boolean;
 };
 
 export function Chart({ option, height = 300, onClickName, still = false }: Props) {
-  // dir="ltr" لأن اتجاه الصفحة RTL بيقلب محاذاة نصوص SVG جوه ECharts ويقصّها.
-  // ترتيب العرض من اليمين للشمال متظبط من إعدادات المحاور نفسها (inverse/position).
+  // dir="ltr" because the page's RTL direction flips SVG text alignment inside ECharts and clips it.
+  // Right-to-left display order is handled by the axis options themselves (inverse/position).
   return (
     <div dir="ltr" style={{ height, width: "100%" }}>
     <ReactECharts
@@ -78,7 +78,7 @@ export function Chart({ option, height = 300, onClickName, still = false }: Prop
 export const axisStyle = {
   axisLine: { lineStyle: { color: "#EBDFF1" } },
   axisTick: { show: false },
-  // RLM قبل النص عشان "2 أفراد" ماتتقلبش جوه الحاوية LTR
+  // RLM before the text so "2 أفراد" is not reversed inside the LTR container
   axisLabel: { color: "#74627C", fontFamily: FONT, fontSize: 11, formatter: (v: string | number) => `‏${v}` },
   splitLine: { lineStyle: { color: "#F3E6F8", type: "dashed" as const } },
 };
