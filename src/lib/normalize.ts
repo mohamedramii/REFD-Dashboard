@@ -2,6 +2,7 @@ import type {
   ChildRecord,
   DataIssue,
   FamilyRecord,
+  FieldLists,
   PsychRecord,
 } from "./types";
 
@@ -325,4 +326,18 @@ export function normalizePsych(rows: RawSheet): PsychRecord[] {
     });
   });
   return out;
+}
+
+/** Converts sheet dropdown lists (column header + options) into filter options */
+export function fieldListsFromColumns(columns: { header: string; list: string[] }[]): FieldLists {
+  const find = (match: (h: string) => boolean) => {
+    const col = columns.find((c) => match(normalizeArabic(c.header)));
+    return col ? [...new Set(col.list.map((v) => text(v)).filter(Boolean))] : [];
+  };
+  return {
+    services: find((h) => h.includes("الخدمه") && !h.includes("حاله")),
+    statuses: find((h) => h.includes("حاله الخدمه")),
+    results: find((h) => h === "النتيجه"),
+    cities: find((h) => h === "المدينه"),
+  };
 }

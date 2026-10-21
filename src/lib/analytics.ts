@@ -82,7 +82,7 @@ export function applyFamilyFilters(rows: FamilyRecord[], f: Filters): FamilyReco
     if (f.cities.length && !f.cities.includes(label(r.city))) return false;
     if (f.services.length && !f.services.includes(shortService(r.service))) return false;
     if (f.statuses.length && !f.statuses.includes(label(r.status))) return false;
-    if (f.results.length && !f.results.includes(resultGroup(r.result))) return false;
+    if (f.results.length && !f.results.includes(label(r.result))) return false;
     if (f.from && (!r.resultDate || r.resultDate < f.from)) return false;
     if (f.to && (!r.resultDate || r.resultDate > f.to)) return false;
     return true;

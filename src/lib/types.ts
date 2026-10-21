@@ -62,5 +62,9 @@ export type DashboardData = {
   children: ChildRecord[];
   psych: PsychRecord[];
   issues: DataIssue[];
+  // Dropdown options from the sheet (data validation), so filters show every value, even unused ones
+  lists?: { family: FieldLists; children: FieldLists };
   error?: string;
 };
+
+export type FieldLists = { services: string[]; statuses: string[]; results: string[]; cities: string[] };

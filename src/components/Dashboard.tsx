@@ -14,8 +14,6 @@ import {
   isDone,
   label,
   PENDING_RESULT,
-  RESULT_GROUPS,
-  resultGroup,
   shortService,
   uniq,
 } from "@/lib/analytics";
@@ -43,6 +41,13 @@ function timeAgo(iso: string, now: number) {
   if (s < 60) return `منذ ${s} ثانية`;
   const m = Math.round(s / 60);
   return m < 60 ? `منذ ${m} دقيقة` : new Date(iso).toLocaleTimeString("ar-EG");
+}
+
+/** The original list in its order, followed by extra values from the data sorted alphabetically */
+function withList(list: string[] | undefined, values: string[]): string[] {
+  const base = (list ?? []).filter(Boolean);
+  const extra = uniq(values.filter((v) => !base.includes(v)));
+  return [...base, ...extra];
 }
 
 const countActive = (f: Filters) =>
@@ -74,23 +79,26 @@ export function Dashboard() {
   const fam = useMemo(() => applyFamilyFilters(family, famFilters), [family, famFilters]);
   const kids = useMemo(() => applyChildFilters(children, kidFilters), [children, kidFilters]);
 
+  // Options = the sheet dropdown list in order (including unused values), then any extra values found in the data
+  const famLists = data?.lists?.family;
+  const kidLists = data?.lists?.children;
   const famOptions = useMemo(
     () => ({
-      cities: uniq(family.map((r) => label(r.city))),
-      services: uniq(family.map((r) => shortService(r.service))),
-      statuses: uniq(family.map((r) => label(r.status))),
-      results: RESULT_GROUPS.filter((g) => family.some((r) => resultGroup(r.result) === g)),
+      cities: withList(famLists?.cities, family.map((r) => label(r.city))),
+      services: withList(famLists?.services.map(shortService), family.map((r) => shortService(r.service))),
+      statuses: withList(famLists?.statuses, family.map((r) => label(r.status))),
+      results: withList(famLists?.results, family.map((r) => label(r.result))),
     }),
-    [family],
+    [family, famLists],
   );
   const kidOptions = useMemo(
     () => ({
-      cities: uniq(children.map((c) => label(c.city))),
-      services: uniq(children.map((c) => label(c.service))),
-      statuses: uniq(children.map((c) => label(c.status))),
-      results: uniq(children.map((c) => c.result || PENDING_RESULT)),
+      cities: withList(kidLists?.cities, children.map((c) => label(c.city))),
+      services: withList(kidLists?.services, children.map((c) => label(c.service))),
+      statuses: withList(kidLists?.statuses, children.map((c) => label(c.status))),
+      results: withList(kidLists?.results, children.map((c) => c.result || PENDING_RESULT)),
     }),
-    [children],
+    [children, kidLists],
   );
 
   const fk = useMemo(() => familyKpis(fam, refDate), [fam, refDate]);

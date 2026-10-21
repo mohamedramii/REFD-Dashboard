@@ -1,7 +1,8 @@
 import "server-only";
 import { createSign } from "node:crypto";
-import { demoChildren, demoFamily, demoPsych } from "./demo-data";
+import { demoChildren, demoFamily, demoLists, demoPsych } from "./demo-data";
 import {
+  fieldListsFromColumns,
   normalizeArabic,
   normalizeChildren,
   normalizeFamily,
@@ -9,7 +10,7 @@ import {
   SHEET_LABELS,
   type RawSheet,
 } from "./normalize";
-import type { DashboardData, DataIssue } from "./types";
+import type { DashboardData, DataIssue, FieldLists } from "./types";
 
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly";
 const CACHE_SECONDS = Number(process.env.SHEET_CACHE_SECONDS ?? 30);
@@ -123,10 +124,73 @@ async function fetchGoogleSheets(cfg: NonNullable<ReturnType<typeof config>>) {
   const json = (await res.json()) as { valueRanges: { values?: RawSheet }[] };
   const byTab = new Map(present.map((t, i) => [t, json.valueRanges[i]?.values ?? []]));
   const get = (t: string | undefined): RawSheet => (t ? byTab.get(t) ?? [] : []);
-  return { family: get(tabs.family), children: get(tabs.children), psych: get(tabs.psych) };
+
+  // Dropdown lists are optional: if they fail, filters show only the values present in the data
+  const [famLists, kidLists] = await Promise.all([
+    tabs.family ? fetchDropdowns(cfg.sheetId, tabs.family, token).catch(() => null) : null,
+    tabs.children ? fetchDropdowns(cfg.sheetId, tabs.children, token).catch(() => null) : null,
+  ]);
+  const empty: FieldLists = { services: [], statuses: [], results: [], cities: [] };
+  return {
+    family: get(tabs.family),
+    children: get(tabs.children),
+    psych: get(tabs.psych),
+    lists: { family: famLists ?? empty, children: kidLists ?? empty },
+  };
 }
 
-function build(raw: { family: RawSheet; children: RawSheet; psych: RawSheet }, source: DashboardData["source"]): DashboardData {
+type GridCell = {
+  formattedValue?: string;
+  dataValidation?: { condition?: { type?: string; values?: { userEnteredValue?: string }[] } };
+};
+
+/** Reads dropdown options (data validation) from the first rows of the sheet */
+async function fetchDropdowns(sheetId: string, tab: string, token: string): Promise<FieldLists> {
+  const q = (t: string) => `'${t.replace(/'/g, "''")}'`;
+  const params = new URLSearchParams({
+    ranges: `${q(tab)}!A1:Z6`,
+    fields: "sheets.data.rowData.values(formattedValue,dataValidation.condition)",
+  });
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`dropdowns ${res.status}`);
+  const json = (await res.json()) as { sheets?: { data?: { rowData?: { values?: GridCell[] }[] }[] }[] };
+  const rows = (json.sheets?.[0]?.data?.[0]?.rowData ?? []).map((r) => r.values ?? []);
+  const headerIdx = Math.max(
+    0,
+    rows.findIndex((r) => r.some((c) => ["الاسم", "اسم الحاضنه"].includes(normalizeArabic(c.formattedValue ?? "")))),
+  );
+  const headers = rows[headerIdx] ?? [];
+
+  const columns: { header: string; list: string[] }[] = [];
+  for (let col = 0; col < headers.length; col++) {
+    const header = headers[col]?.formattedValue ?? "";
+    const cond = rows.slice(headerIdx + 1).map((r) => r[col]?.dataValidation?.condition).find(Boolean);
+    if (!header || !cond?.values?.length) continue;
+    if (cond.type === "ONE_OF_LIST") {
+      columns.push({ header, list: cond.values.map((v) => v.userEnteredValue ?? "") });
+    } else if (cond.type === "ONE_OF_RANGE") {
+      // The list comes from a range in the sheet (as in converted Excel files): read that range
+      const range = (cond.values[0].userEnteredValue ?? "").replace(/^=/, "").replace(/\$/g, "");
+      const r = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?majorDimension=COLUMNS`,
+        { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+      );
+      if (r.ok) {
+        const v = (await r.json()) as { values?: string[][] };
+        columns.push({ header, list: (v.values ?? []).flat() });
+      }
+    }
+  }
+  return fieldListsFromColumns(columns);
+}
+
+function build(
+  raw: { family: RawSheet; children: RawSheet; psych: RawSheet; lists?: DashboardData["lists"] },
+  source: DashboardData["source"],
+): DashboardData {
   const issues: DataIssue[] = [];
   return {
     source,
@@ -135,6 +199,7 @@ function build(raw: { family: RawSheet; children: RawSheet; psych: RawSheet }, s
     children: normalizeChildren(raw.children, issues),
     psych: normalizePsych(raw.psych),
     issues,
+    lists: raw.lists,
   };
 }
 
@@ -143,7 +208,7 @@ let dataCache: { data: DashboardData; at: number } | null = null;
 /** طلب واحد لـ Google كل CACHE_SECONDS مهما كان عدد اللي فاتحين الداشبورد. */
 export async function getDashboardData(force = false): Promise<DashboardData> {
   const cfg = config();
-  if (!cfg) return build({ family: demoFamily, children: demoChildren, psych: demoPsych }, "demo");
+  if (!cfg) return build({ family: demoFamily, children: demoChildren, psych: demoPsych, lists: demoLists }, "demo");
 
   const fresh = dataCache && Date.now() - dataCache.at < CACHE_SECONDS * 1000;
   if (fresh && !force) return dataCache!.data;
