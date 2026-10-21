@@ -42,7 +42,7 @@ export function filtersFromQuery(p: URLSearchParams): Filters {
   };
 }
 
-// Statuses now include "تم التواصل" and "تم جدولة الموعد", so only rows whose reports were uploaded count as done
+// Statuses now include "contacted" and "appointment scheduled", so only rows whose reports were uploaded count as done
 export const isDone = (status: string) => status.includes("رفع التقارير") || status.trim() === "تمت";
 export const isHealthy = (result: string) => result === "سليم";
 
@@ -51,7 +51,7 @@ export const RESULT_GROUPS = ["مناسب", "غير مناسب", "بحاجة ل�
 export type ResultGroup = (typeof RESULT_GROUPS)[number];
 
 /**
- * The sheet has more than two result values ("مناسبة للتحفيز", "لا يوصي بالتحفيز", "بحاجة لجلسات دعم"...),
+ * The sheet has more than two result values ("suitable for stimulation", "stimulation not recommended", "needs support sessions"...),
  * so they are grouped into 3 fixed groups to keep KPIs and colors stable as new values appear.
  */
 export function resultGroup(result: string): ResultGroup {

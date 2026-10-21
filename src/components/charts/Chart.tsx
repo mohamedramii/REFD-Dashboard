@@ -78,7 +78,7 @@ export function Chart({ option, height = 300, onClickName, still = false }: Prop
 export const axisStyle = {
   axisLine: { lineStyle: { color: "#EBDFF1" } },
   axisTick: { show: false },
-  // RLM before the text so "2 أفراد" is not reversed inside the LTR container
+  // RLM before the text so mixed labels like "2 members" are not reversed inside the LTR container
   axisLabel: { color: "#74627C", fontFamily: FONT, fontSize: 11, formatter: (v: string | number) => `‏${v}` },
   splitLine: { lineStyle: { color: "#F3E6F8", type: "dashed" as const } },
 };

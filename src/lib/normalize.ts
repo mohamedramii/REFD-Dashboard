@@ -123,7 +123,7 @@ export function normalizeFamily(rows: RawSheet, issues: DataIssue[]): FamilyReco
   const sheet = SHEET_LABELS.family;
   const headerRow = findHeaderRow(rows, ["الاسم"]);
   const headers = (rows[headerRow] ?? []).map((c) => normalizeArabic(text(c)));
-  // Order matters: more specific fields first so "تاريخ النتيجة" is not taken as "النتيجة"
+  // Order matters: more specific fields first so "result date" is not taken as "result"
   const col = mapColumns(headers, {
     resultDate: (h) => h.includes("تاريخ") && h.includes("النتيجه"),
     labDate: (h) => h.includes("الفحوصات") || h.includes("المخبريه"),
@@ -223,9 +223,9 @@ export function normalizeChildren(rows: RawSheet, issues: DataIssue[]): ChildRec
   const headerRow = findHeaderRow(rows, ["الاسم"]);
   const headers = (rows[headerRow] ?? []).map((c) => normalizeArabic(text(c)));
   const col = mapColumns(headers, {
-    // Optional columns first so "تاريخ النتيجة" is not taken as "النتيجة"
+    // Optional columns first so "result date" is not taken as "result"
     resultDate: (h) => h.includes("تاريخ") && h.includes("النتيجه"),
-    // Matches both "تاريخ الاستلام" and "تاريخ استلام الحالة", but not "تاريخ استلام النتيجة"
+    // Matches both "received date" and "case received date", but not "result received date"
     receivedDate: (h) => h.includes("استلام") && !h.includes("قبل") && !h.includes("النتيجه"),
     birthDate: (h) => h.includes("الميلاد"),
     status: (h) => h.includes("حاله الخدمه"),
