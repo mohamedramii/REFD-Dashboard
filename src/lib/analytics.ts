@@ -42,7 +42,8 @@ export function filtersFromQuery(p: URLSearchParams): Filters {
   };
 }
 
-export const isDone = (status: string) => status.includes("تم");
+// Statuses now include "تم التواصل" and "تم جدولة الموعد", so only rows whose reports were uploaded count as done
+export const isDone = (status: string) => status.includes("رفع التقارير") || status.trim() === "تمت";
 export const isHealthy = (result: string) => result === "سليم";
 
 export const PENDING_RESULT = "بانتظار النتيجة";
@@ -63,13 +64,10 @@ export function resultGroup(result: string): ResultGroup {
 
 export const isSuitable = (result: string) => resultGroup(result) === "مناسب";
 
-/** "التحقق الصحي للأسرة ( الأم )" ← "الأم" */
+/** Full service name as written in the sheet list (the client asked for full terms), without extra spaces */
 export function shortService(service: string): string {
   if (!service) return UNKNOWN;
-  if (service.includes("الأم") || service.includes("الام")) return "الأم";
-  if (service.includes("الأب") || service.includes("الاب")) return "الأب";
-  if (service.includes("الأبناء") || service.includes("للابناء") || service.includes("18")) return "الأبناء";
-  return service;
+  return service.replace(/\s+/g, " ").trim();
 }
 
 export function label(value: string): string {

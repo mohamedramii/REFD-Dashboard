@@ -56,23 +56,24 @@ export function KpiCard({
 }) {
   const t = toneStyles[tone];
   return (
-    <div className="card relative overflow-hidden p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted">{label}</p>
-          <p className="mt-1.5 text-[28px] leading-none font-bold tracking-tight text-ink tabular-nums">{value}</p>
-          {hint && <p className="mt-2 truncate text-[11px] text-muted">{hint}</p>}
-        </div>
+    <div className="card relative flex h-full flex-col overflow-hidden p-4">
+      <div className="flex h-10 items-center justify-between gap-3">
+        <p className="line-clamp-2 min-w-0 text-xs leading-snug font-medium text-muted">{label}</p>
         <span className={`grid size-10 shrink-0 place-items-center rounded-2xl ${t.bg} ${t.fg}`}>{icon}</span>
       </div>
-      {progress !== undefined && (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-refd-purple-50">
-          <div
-            className="h-full rounded-full bg-gradient-to-l from-refd-cyan to-refd-purple transition-all duration-700"
-            style={{ width: `${Math.min(100, progress)}%` }}
-          />
-        </div>
-      )}
+      <p className="mt-3 text-[28px] leading-none font-bold tracking-tight text-ink tabular-nums">{value}</p>
+      {/* Fixed-height footer slot so every card has the same height and the numbers line up */}
+      <div className="mt-3 flex h-7 flex-col justify-end gap-1.5">
+        {hint && <p className="truncate text-[11px] leading-none text-muted">{hint}</p>}
+        {progress !== undefined && (
+          <div className="h-1.5 overflow-hidden rounded-full bg-refd-purple-50">
+            <div
+              className="h-full rounded-full bg-gradient-to-l from-refd-cyan to-refd-purple transition-all duration-700"
+              style={{ width: `${Math.min(100, progress)}%` }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -122,7 +123,7 @@ export function MultiSelect({
         </svg>
       </button>
       {open && (
-        <div className="scrollbar-thin absolute z-30 mt-2 max-h-72 w-full min-w-56 overflow-auto rounded-2xl border border-line bg-white p-1.5 shadow-xl">
+        <div className="scrollbar-thin absolute z-30 mt-2 max-h-80 w-max min-w-full max-w-[min(22rem,90vw)] overflow-auto rounded-2xl border border-line bg-white p-1.5 shadow-xl">
           {options.length === 0 && <p className="p-3 text-xs text-muted">لا توجد قيم</p>}
           {options.map((o) => (
             <label
@@ -135,7 +136,7 @@ export function MultiSelect({
                 onChange={() => toggle(o)}
                 className="size-4 accent-[var(--refd-purple)]"
               />
-              <span className="truncate">{o}</span>
+              <span className="leading-snug">{o}</span>
             </label>
           ))}
           {value.length > 0 && (

@@ -175,7 +175,7 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     periodMissing: period.missing,
     sankey: sankey(sankeyCityServiceResult(filtered)),
     heat: heatmap(cityService.rows, cityService.cols, cityService.get),
-    services: donut(countBy(filtered, (r) => shortService(r.service)), "مستفيد"),
+    services: donut(countBy(filtered, (r) => shortService(r.service)), "مستفيد", false, true),
     results: donut(countBy(filtered, (r) => resultGroup(r.result)), "نتيجة", true),
     resultDetail: horizontalBar(countBy(filtered.filter((r) => r.result), (r) => r.result), PALETTE[0], 20),
     timeline: timelineChart(timeline(filtered)),

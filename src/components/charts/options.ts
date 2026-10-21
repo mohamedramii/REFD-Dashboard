@@ -12,16 +12,30 @@ const legendBottom = {
   formatter: (name: string) => `‏${name}`,
 };
 
-export function donut(data: NameValue[], centerLabel: string, colorByStatus = false): EChartsOption {
+/** sideLegend: long names (like full program names) sit beside the donut and wrap onto several lines instead of paging */
+export function donut(data: NameValue[], centerLabel: string, colorByStatus = false, sideLegend = false): EChartsOption {
   const total = data.reduce((s, d) => s + d.value, 0);
+  const cx = sideLegend ? "68%" : "50%";
   return {
     tooltip: { trigger: "item", formatter: "{b}<br/><b>{c}</b> ({d}%)" },
-    legend: { ...legendBottom, type: "scroll" },
+    legend: sideLegend
+      ? {
+          ...legendBottom,
+          bottom: undefined,
+          type: "plain",
+          orient: "vertical",
+          left: 8,
+          top: "middle",
+          itemGap: 12,
+          textStyle: { ...legendBottom.textStyle, width: 130, overflow: "break", lineHeight: 15 },
+        }
+      : { ...legendBottom, type: "scroll" },
     title: {
       text: String(total),
       subtext: centerLabel,
-      left: "center",
-      top: "36%",
+      left: cx,
+      textAlign: "center",
+      top: sideLegend ? "41%" : "36%",
       textStyle: { fontSize: 26, fontWeight: 700, color: "#2A1033" },
       subtextStyle: { fontSize: 11, color: "#74627C" },
       itemGap: 4,
@@ -29,8 +43,8 @@ export function donut(data: NameValue[], centerLabel: string, colorByStatus = fa
     series: [
       {
         type: "pie",
-        radius: ["58%", "80%"],
-        center: ["50%", "45%"],
+        radius: sideLegend ? ["44%", "64%"] : ["58%", "80%"],
+        center: [cx, sideLegend ? "50%" : "45%"],
         avoidLabelOverlap: true,
         itemStyle: { borderRadius: 8, borderColor: "#fff", borderWidth: 3 },
         label: { show: false },

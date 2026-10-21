@@ -222,21 +222,20 @@ export function Dashboard() {
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
               <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} icon={<Icons.clipboard />} />
-              <KpiCard label="المواعيد المحجوزة" value={fk.booked} hint="حسب تاريخ النتيجة" tone="cyan" icon={<Icons.calendar />} />
+              <KpiCard label="المواعيد المحجوزة" value={fk.booked} tone="cyan" icon={<Icons.calendar />} />
               <KpiCard
-                label="تمت وظهرت نتيجتها"
+                label="ظهور النتيجة"
                 value={fk.completed}
-                hint={fk.pendingResult ? `${fk.pendingResult} بانتظار النتيجة` : "كل المواعيد ليها نتيجة"}
                 tone="purple"
                 icon={<Icons.check />}
                 progress={fk.booked ? (fk.completed / fk.booked) * 100 : 0}
               />
-              <KpiCard label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتايج`} tone="success" icon={<Icons.heart />} progress={fk.suitableRate} />
-              <KpiCard label="غير مناسب" value={fk.unsuitable} hint="محتاج مراجعة" tone="danger" icon={<Icons.alert />} />
-              <KpiCard label="بحاجة لمتابعة" value={fk.followUp} hint={fk.avgAge !== null ? `متوسط العمر ${fk.avgAge} سنة` : undefined} tone="warning" icon={<Icons.clock />} />
+              <KpiCard label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={fk.suitableRate} />
+              <KpiCard label="غير مناسب" value={fk.unsuitable} tone="danger" icon={<Icons.alert />} />
+              <KpiCard label="بحاجة لمتابعة" value={fk.followUp} tone="warning" icon={<Icons.clock />} />
             </div>
 
-            <SectionTitle title="المستفيدين حسب الفترة" subtitle="عدد المواعيد في كل فترة، مقسمة حسب النتيجة · غيّر الفترة من الفلتر فوق" />
+            <SectionTitle title="المستفيدين حسب الفترة" />
             <ChartCard
               title="المواعيد المحجوزة على مدار الوقت"
               action={<GranularityToggle value={granularity} onChange={setGranularity} />}
@@ -248,35 +247,25 @@ export function Dashboard() {
               )}
             </ChartCard>
 
-            <SectionTitle title="المدن ونوع البرنامج" subtitle="اضغط على أي مدينة أو برنامج عشان تفلتر اللوحة كلها" />
+            <SectionTitle title="المدن ونوع البرنامج" />
             <div className="grid gap-5 lg:grid-cols-5">
               <ChartCard title="المستفيدين حسب المدينة" subtitle="مقسمين حسب النتيجة" className="lg:col-span-3">
                 <Chart option={charts.cityResult} height={300} onClickName={(n) => toggleFam("cities", n)} />
               </ChartCard>
-              <ChartCard title="نوع البرنامج" subtitle="الخدمة المقدمة" className="lg:col-span-2">
+              <ChartCard title="نوع البرنامج" className="lg:col-span-2">
                 <Chart option={charts.services} height={300} onClickName={(n) => toggleFam("services", n)} />
               </ChartCard>
             </div>
+            <ChartCard title="نوع البرنامج لكل مدينة">
+              <Chart option={charts.byCityStack} height={340} onClickName={(n) => toggleFam("cities", n)} />
+            </ChartCard>
 
-            <SectionTitle title="العمر والنتائج" />
-            <div className="grid gap-5 lg:grid-cols-3">
-              <ChartCard title="الفئات العمرية" subtitle="العمر وقت الموعد، محسوب من تاريخ الميلاد">
-                <Chart option={charts.ages} height={270} />
+            <div className="grid gap-5 lg:grid-cols-2">
+              <ChartCard title="الفئات العمرية">
+                <Chart option={charts.ages} height={290} />
               </ChartCard>
-              <ChartCard title="العمر × نوع البرنامج">
-                <Chart option={charts.ageByProgram} height={270} />
-              </ChartCard>
-              <ChartCard title="النتائج" subtitle="مناسب / غير مناسب / بحاجة لمتابعة">
-                <Chart option={charts.results} height={270} onClickName={(n) => toggleFam("results", n)} />
-              </ChartCard>
-            </div>
-
-            <div className="grid gap-5 lg:grid-cols-5">
-              <ChartCard title="مسار الحالات" subtitle="المدينة ← نوع البرنامج ← النتيجة" className="lg:col-span-3">
-                <Chart option={charts.sankey} height={330} />
-              </ChartCard>
-              <ChartCard title="تفاصيل النتايج" subtitle="كل نتيجة زي ما مكتوبة في الشيت" className="lg:col-span-2">
-                <Chart option={charts.resultDetail} height={330} />
+              <ChartCard title="تفاصيل النتائج">
+                <Chart option={charts.resultDetail} height={290} />
               </ChartCard>
             </div>
           </>
@@ -294,30 +283,18 @@ export function Dashboard() {
               periodDisabled={!kidsHaveDates}
             />
 
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
               <KpiCard label="عدد الفحوصات" value={ck.total} hint={`${ck.services} أنواع فحص`} icon={<Icons.clipboard />} />
-              <KpiCard label="فحص قبل الاستلام" value={ck.beforeReceipt} hint={`من ${ck.total} فحص`} tone="cyan" icon={<Icons.baby />} progress={ck.total ? (ck.beforeReceipt / ck.total) * 100 : 0} />
-              <KpiCard label="المواعيد المحجوزة" value={ck.booked} hint="حسب نوع الفحص" tone="purple" icon={<Icons.calendar />} />
-              <KpiCard label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتايج`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
-              <KpiCard label="غير سليم" value={ck.unhealthy} hint={`${ck.withNotes} عليها ملاحظات`} tone="danger" icon={<Icons.alert />} />
-              <KpiCard
-                label="من الاستلام للنتيجة"
-                value={ck.avgDuration !== null ? `${ck.avgDuration}` : "—"}
-                hint={ck.hasDurationData ? "متوسط بالأيام" : "بانتظار عمود تاريخ الاستلام"}
-                tone="warning"
-                icon={<Icons.clock />}
-              />
+              <KpiCard label="المواعيد المحجوزة" value={ck.booked} tone="purple" icon={<Icons.calendar />} />
+              <KpiCard label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
+              <KpiCard label="غير سليم" value={ck.unhealthy} tone="danger" icon={<Icons.alert />} />
+              <KpiCard label="من الاستلام للنتيجة" value={ck.avgDuration !== null ? `${ck.avgDuration}` : "—"} tone="warning" icon={<Icons.clock />} />
             </div>
 
-            <SectionTitle title="نوع الفحص والنتيجة" subtitle="اضغط على أي نوع فحص أو نتيجة عشان تفلتر" />
-            <div className="grid gap-5 lg:grid-cols-5">
-              <ChartCard title="المواعيد المحجوزة حسب نوع الفحص" subtitle="عمود الخدمة المقدمة" className="lg:col-span-3">
-                <Chart option={kidCharts.services} height={Math.max(240, ck.services * 46)} onClickName={(n) => toggleKid("services", n)} />
-              </ChartCard>
-              <ChartCard title="نتيجة الفحص" className="lg:col-span-2">
-                <Chart option={kidCharts.results} height={Math.max(240, ck.services * 46)} onClickName={(n) => toggleKid("results", n)} />
-              </ChartCard>
-            </div>
+            <SectionTitle title="نوع الفحص والنتيجة" />
+            <ChartCard title="المواعيد المحجوزة حسب نوع الفحص">
+              <Chart option={kidCharts.services} height={Math.max(240, ck.services * 46)} onClickName={(n) => toggleKid("services", n)} />
+            </ChartCard>
             <ChartCard title="النتيجة حسب نوع الفحص">
               <Chart option={kidCharts.serviceResult} height={280} />
             </ChartCard>
@@ -343,12 +320,9 @@ export function Dashboard() {
               </ChartCard>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-3">
-              <ChartCard title="الحالات حسب المستشفى" className="lg:col-span-2">
-                <Chart option={kidCharts.hospitals} height={Math.max(240, ck.hospitals * 32)} />
-              </ChartCard>
-              <ChartCard title="ملاحظات تحتاج متابعة">
-                <ul className="scrollbar-thin max-h-[300px] space-y-2 overflow-auto">
+            <div>
+              <ChartCard title="ملاحظات">
+                <ul className="scrollbar-thin grid max-h-[340px] gap-2 overflow-auto sm:grid-cols-2 xl:grid-cols-3">
                   {kids.filter((c) => c.notes).map((c) => (
                     <li key={c.id} className="rounded-2xl border border-line bg-refd-purple-50/60 p-3">
                       <div className="flex items-center justify-between gap-2">
