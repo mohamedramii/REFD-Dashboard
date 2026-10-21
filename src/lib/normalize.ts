@@ -225,7 +225,8 @@ export function normalizeChildren(rows: RawSheet, issues: DataIssue[]): ChildRec
   const col = mapColumns(headers, {
     // الأعمدة الاختيارية الأول عشان "تاريخ النتيجة" مايتاخدش كـ "النتيجة"
     resultDate: (h) => h.includes("تاريخ") && h.includes("النتيجه"),
-    receivedDate: (h) => h.includes("الاستلام") && !h.includes("قبل"),
+    // Matches both "تاريخ الاستلام" and "تاريخ استلام الحالة", but not "تاريخ استلام النتيجة"
+    receivedDate: (h) => h.includes("استلام") && !h.includes("قبل") && !h.includes("النتيجه"),
     birthDate: (h) => h.includes("الميلاد"),
     status: (h) => h.includes("حاله الخدمه"),
     service: (h) => h.includes("الخدمه"),
