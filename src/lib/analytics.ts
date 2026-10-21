@@ -225,9 +225,19 @@ export function periodKey(dates: string[]): (iso: string) => string {
   return span > 62 ? (iso) => iso.slice(0, 7) : (iso) => iso;
 }
 
+export type Granularity = "month" | "year";
+
+export function periodKeyBy(granularity: Granularity): (iso: string) => string {
+  return granularity === "year" ? (iso) => iso.slice(0, 4) : (iso) => iso.slice(0, 7);
+}
+
+const MONTHS_AR = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+
 export function periodLabel(key: string): string {
   const [y, m, d] = key.split("-");
-  return d ? `${Number(d)}/${Number(m)}` : `${Number(m)}/${y}`;
+  if (d) return `${Number(d)}/${Number(m)}`;
+  if (m) return `${MONTHS_AR[Number(m) - 1]} ${y}`;
+  return y;
 }
 
 /** روابط Sankey: المدينة ← نوع الخدمة ← النتيجة */

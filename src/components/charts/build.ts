@@ -10,7 +10,9 @@ import {
   label,
   matrix,
   PENDING_RESULT,
+  type Granularity,
   periodKey,
+  periodKeyBy,
   periodLabel,
   RESULT_GROUPS,
   resultGroup,
@@ -38,10 +40,18 @@ import {
 const AGE_EDGES = [0, 18, 30, 40, 50, 200];
 const AGE_LABELS = ["أقل من 18", "18–29", "30–39", "40–49", "50+"];
 
-/** عدد المستفيدين في كل فترة، مقسم حسب المجموعة (نتيجة أو نوع فحص...) */
-function periodStack<T>(rows: T[], date: (r: T) => string | null, group: (r: T) => string, groups: string[], colors?: Record<string, string>) {
+/** Beneficiaries per period, split by group (result, test type...) */
+function periodStack<T>(
+  rows: T[],
+  date: (r: T) => string | null,
+  group: (r: T) => string,
+  groups: string[],
+  colors?: Record<string, string>,
+  granularity?: Granularity,
+) {
   const dated = rows.filter((r) => date(r));
-  const keyOf = periodKey(dated.map((r) => date(r)!));
+  // Without granularity: by day or by month depending on the range
+  const keyOf = granularity ? periodKeyBy(granularity) : periodKey(dated.map((r) => date(r)!));
   const keys = uniq(dated.map((r) => keyOf(date(r)!))).sort();
   const option = stackedBar(
     keys.map(periodLabel),
@@ -151,7 +161,8 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     return { name: c.name, value: [c.value, k.families, k.booked, k.suitableRate, districts], color: PALETTE[i % PALETTE.length] };
   });
 
-  const period = periodStack(filtered, (r) => r.resultDate, (r) => resultGroup(r.result), [...groupsPresent], STATUS_COLORS);
+  const period = periodStack(filtered, (r) => r.resultDate, (r) => resultGroup(r.result), [...groupsPresent], STATUS_COLORS, "month");
+  const periodYear = periodStack(filtered, (r) => r.resultDate, (r) => resultGroup(r.result), [...groupsPresent], STATUS_COLORS, "year");
 
   return {
     byCityStack,
@@ -159,6 +170,7 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     resultByService,
     doneByCity,
     period: period.option,
+    periodYear: periodYear.option,
     periodHasData: period.hasData,
     periodMissing: period.missing,
     sankey: sankey(sankeyCityServiceResult(filtered)),

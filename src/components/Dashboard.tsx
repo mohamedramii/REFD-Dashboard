@@ -10,6 +10,7 @@ import {
   emptyFilters,
   familyKpis,
   type Filters,
+  type Granularity,
   filtersToQuery,
   isDone,
   label,
@@ -58,7 +59,8 @@ export function Dashboard() {
   const [tab, setTab] = useState<TabId>("family");
   const [famFilters, setFamFilters] = useState<Filters>(emptyFilters);
   const [kidFilters, setKidFilters] = useState<Filters>(emptyFilters);
-  // الوقت الحالي بيتقرا في المتصفح بس، عشان الصفحة تتبني مسبقًا من غير قيمة متغيرة
+  const [granularity, setGranularity] = useState<Granularity>("month");
+  // The current time is read in the browser only, so the page can be prerendered without a changing value
   const [now, setNow] = useState(0);
 
   useEffect(() => {
@@ -237,9 +239,13 @@ export function Dashboard() {
             <SectionTitle title="المستفيدين حسب الفترة" subtitle="عدد المواعيد في كل فترة، مقسمة حسب النتيجة · غيّر الفترة من الفلتر فوق" />
             <ChartCard
               title="المواعيد المحجوزة على مدار الوقت"
-              subtitle={charts.periodMissing ? `${charts.periodMissing} حالة من غير تاريخ نتيجة ومش ظاهرة هنا` : undefined}
+              action={<GranularityToggle value={granularity} onChange={setGranularity} />}
             >
-              {charts.periodHasData ? <Chart option={charts.period} height={300} /> : <EmptyChart text="مافيش مواعيد في الفترة دي" />}
+              {charts.periodHasData ? (
+                <Chart option={granularity === "year" ? charts.periodYear : charts.period} height={300} />
+              ) : (
+                <EmptyChart text="مافيش مواعيد في الفترة دي" />
+              )}
             </ChartCard>
 
             <SectionTitle title="المدن ونوع البرنامج" subtitle="اضغط على أي مدينة أو برنامج عشان تفلتر اللوحة كلها" />
@@ -368,6 +374,27 @@ export function Dashboard() {
           {data && data.psych.length > 0 && ` · الفحص النفسي: ${data.psych.length} حالة (${data.psych.filter((p) => isDone(p.status)).length} مكتملة)`}
         </footer>
       </main>
+    </div>
+  );
+}
+
+function GranularityToggle({ value, onChange }: { value: Granularity; onChange: (g: Granularity) => void }) {
+  const items: { id: Granularity; label: string }[] = [
+    { id: "month", label: "شهري" },
+    { id: "year", label: "سنوي" },
+  ];
+  return (
+    <div className="flex rounded-xl bg-refd-purple-50 p-1">
+      {items.map((i) => (
+        <button
+          key={i.id}
+          type="button"
+          onClick={() => onChange(i.id)}
+          className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${value === i.id ? "bg-white text-refd-purple shadow" : "text-muted"}`}
+        >
+          {i.label}
+        </button>
+      ))}
     </div>
   );
 }
