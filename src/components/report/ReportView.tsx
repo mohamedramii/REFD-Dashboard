@@ -16,7 +16,7 @@ import {
 import { buildInsights } from "@/lib/insights";
 import { Chart } from "../charts/Chart";
 import { buildChildCharts, buildFamilyCharts } from "../charts/build";
-import { gauge, horizontalBar } from "../charts/options";
+import { horizontalBar } from "../charts/options";
 import { Icons } from "../icons";
 import { useDashboardData } from "../useDashboardData";
 
@@ -125,7 +125,7 @@ export function ReportView() {
             الفحوصات
           </h1>
           <p className="mt-[6mm] max-w-[120mm] text-[12pt] leading-relaxed text-white/80">
-            التحقق الصحي للأسر، وفحص الأطفال قبل الاستلام، والفحص النفسي — ملخص المؤشرات والتحليلات وجودة البيانات.
+            التحقق الصحي للأسر، وفحص الأطفال قبل الاستلام — ملخص المؤشرات والتحليلات وجودة البيانات.
           </p>
           <div className="absolute bottom-[14mm] right-[16mm] flex items-baseline gap-3 text-white/90">
             <span className="text-[10pt] text-white/60">تاريخ الإصدار</span>
@@ -139,7 +139,7 @@ export function ReportView() {
             <div className="grid grid-cols-2 gap-x-[10mm] gap-y-[3mm] text-[9.5pt]">
               <Meta label="الفترة المغطاة" value={period} />
               <Meta label="مصدر البيانات" value={data.source === "google" ? "Google Sheets (مباشر)" : "بيانات تجريبية"} />
-              <Meta label="عدد السجلات" value={`${family.length + children.length + data.psych.length} سجل`} />
+              <Meta label="عدد السجلات" value={`${family.length + children.length} سجل`} />
               <Meta label="الفلاتر" value={filterText || "كل البيانات"} />
             </div>
           </div>
@@ -160,152 +160,103 @@ export function ReportView() {
       </section>
 
       {/* ---------- Executive summary ---------- */}
-      <Sheet n={1} title="الملخص التنفيذي" subtitle="أهم المؤشرات والملاحظات">
-        <div className="grid grid-cols-4 gap-[3mm]">
-          <Kpi label="الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} />
-          <Kpi label="المواعيد المحجوزة" value={fk.booked} hint="حسب تاريخ النتيجة" />
-          <Kpi label="تمت وظهرت نتيجتها" value={fk.completed} hint={`${fk.pendingResult} بانتظار النتيجة`} />
-          <Kpi label="مناسب" value={fk.suitable} hint={`${fk.unsuitable} غير مناسب · ${fk.followUp} متابعة`} tone="good" />
-          <Kpi label="فحوصات الأطفال" value={ck.total} hint={`${ck.services} أنواع فحص`} />
-          <Kpi label="فحص قبل الاستلام" value={ck.beforeReceipt} hint={`من ${ck.total} فحص`} />
-          <Kpi label="أطفال سليمين" value={`${ck.healthyRate}%`} hint={`${ck.healthy} طفل`} tone="good" />
-          <Kpi label="متوسط العمر" value={fk.avgAge ?? "—"} hint="سنة (الأسر)" />
+      <Sheet n={1} title="الملخص التنفيذي" subtitle="نفس مؤشرات لوحة المتابعة">
+        <h3 className="mb-[2mm] text-[10.5pt] font-bold text-refd-purple">لوحة الأسر</h3>
+        <div className="grid grid-cols-3 gap-[3mm]">
+          <Kpi label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} />
+          <Kpi label="المواعيد المحجوزة" value={fk.booked} />
+          <Kpi label="ظهور النتيجة" value={fk.completed} hint={`${pct(fk.completed, fk.booked)}% من المواعيد`} />
+          <Kpi label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="good" />
+          <Kpi label="غير مناسب" value={fk.unsuitable} hint={`${fk.unsuitableRate}% من النتائج`} tone="bad" />
+          <Kpi label="بحاجة لمتابعة" value={fk.followUp} hint={`${fk.followUpRate}% من النتائج`} tone="warn" />
         </div>
 
-        <div className="mt-[4mm] grid grid-cols-3 gap-[3mm]">
-          <Block title="مواعيد ظهرت نتيجتها">
-            <Chart still option={gauge(fk.booked ? Math.round((fk.completed / fk.booked) * 1000) / 10 : 0, `${fk.completed} من ${fk.booked}`)} height={150} />
-          </Block>
-          <Block title="نسبة المناسب">
-            <Chart still option={gauge(fk.suitableRate, `${fk.suitable} حالة`, "#0BC8F2")} height={150} />
-          </Block>
-          <Block title="الأطفال السليمين">
-            <Chart still option={gauge(ck.healthyRate, `${ck.healthy} طفل`, "#1F9D6B")} height={150} />
-          </Block>
+        <h3 className="mt-[5mm] mb-[2mm] text-[10.5pt] font-bold text-refd-cyan-600">لوحة الأطفال</h3>
+        <div className="grid grid-cols-5 gap-[3mm]">
+          <Kpi label="عدد الفحوصات" value={ck.total} hint={`${ck.services} أنواع فحص`} />
+          <Kpi label="المواعيد المحجوزة" value={ck.booked} />
+          <Kpi label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="good" />
+          <Kpi label="غير سليم" value={ck.unhealthy} hint={`${ck.unhealthyRate}% من النتائج`} tone="bad" />
+          <Kpi label="من الاستلام للنتيجة" value={ck.avgDuration ?? "—"} hint={ck.avgDuration !== null ? "يوم في المتوسط" : undefined} tone="warn" />
         </div>
 
-        <div className="mt-[4mm] grid grid-cols-5 gap-[3mm]">
-          <div className="report-card col-span-3">
-            <h3 className="mb-2 text-[11pt] font-bold text-ink">قراءة سريعة في الأرقام</h3>
-            <ul className="space-y-[2.2mm]">
-              {insights.map((i, idx) => (
-                <li key={idx} className="flex gap-2 text-[9.5pt] leading-relaxed text-ink">
-                  <span
-                    className={`mt-[1.6mm] size-[2.4mm] shrink-0 rounded-full ${
-                      i.tone === "good" ? "bg-success" : i.tone === "warn" ? "bg-warning" : "bg-refd-cyan"
-                    }`}
-                  />
-                  {i.text}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <Block title="مقارنة المدن" className="col-span-2">
-            <Chart still option={charts.radar} height={250} />
-          </Block>
+        <div className="report-card mt-[5mm]">
+          <h3 className="mb-2 text-[11pt] font-bold text-ink">قراءة سريعة في الأرقام</h3>
+          <ul className="space-y-[2.2mm]">
+            {insights.map((i, idx) => (
+              <li key={idx} className="flex gap-2 text-[9.5pt] leading-relaxed text-ink">
+                <span
+                  className={`mt-[1.6mm] size-[2.4mm] shrink-0 rounded-full ${
+                    i.tone === "good" ? "bg-success" : i.tone === "warn" ? "bg-warning" : "bg-refd-cyan"
+                  }`}
+                />
+                {i.text}
+              </li>
+            ))}
+          </ul>
         </div>
       </Sheet>
 
-      {/* ---------- Distribution ---------- */}
-      <Sheet n={2} title="توزيع الفحوصات" subtitle="حسب المدينة والحي ونوع الخدمة">
-        <Block title="الفحوصات حسب المدينة ونوع الخدمة">
-          <Chart still option={charts.byCityStack} height={235} />
+      {/* ---------- Family board ---------- */}
+      <Sheet n={2} title="لوحة الأسر" subtitle="الفترة الزمنية والنطاق الجغرافي ونوع البرنامج">
+        <Block title="المستفيدين حسب الفترة الزمنية">
+          {charts.periodHasData ? <Chart still option={charts.period} height={230} /> : <ReportEmpty text="مافيش مواعيد في الفترة دي" height={230} />}
         </Block>
-        <div className="mt-[3mm] grid grid-cols-2 gap-[3mm]">
-          <Block title="توزيع الخدمات">
-            <Chart still option={charts.services} height={215} />
+        <div className="mt-[3mm] grid grid-cols-5 gap-[3mm]">
+          <Block title="النتيجة حسب النطاق الجغرافي" className="col-span-3">
+            <Chart still option={charts.cityResult} height={230} />
           </Block>
-          <Block title="توزيع النتائج">
-            <Chart still option={charts.results} height={215} />
+          <Block title="نوع البرنامج" className="col-span-2">
+            <Chart still option={charts.services} height={230} />
           </Block>
         </div>
-        <div className="mt-[3mm] grid grid-cols-2 gap-[3mm]">
-          <Block title="المدينة × نوع الخدمة">
-            <Chart still option={charts.heat} height={250} />
-          </Block>
-          <Block title="المدن والأحياء">
-            <Chart still option={charts.tree} height={250} />
-          </Block>
-        </div>
-      </Sheet>
-
-      {/* ---------- Flow and timing ---------- */}
-      <Sheet n={3} title="مسار الحالات والزمن" subtitle="العلاقة بين المدينة والخدمة والنتيجة، وسرعة الإنجاز">
-        <Block title="مسار الحالات: المدينة ← نوع الخدمة ← النتيجة">
-          <Chart still option={charts.sankey} height={290} />
-        </Block>
         <div className="mt-[3mm]">
-          <Block title="حركة الفحوصات والنتائج يوميًا">
-            <Chart still option={charts.timeline} height={245} />
+          <Block title="نوع البرنامج لكل مدينة">
+            <Chart still option={charts.byCityStack} height={250} />
+          </Block>
+        </div>
+      </Sheet>
+
+      <Sheet n={3} title="لوحة الأسر" subtitle="الأعمار والنتائج والملاحظات" flow>
+        <div className="grid grid-cols-2 gap-[3mm]">
+          <Block title="الفئات العمرية حسب نوع البرنامج">
+            <Chart still option={charts.ageByProgram} height={250} />
+          </Block>
+          <Block title="تفاصيل النتائج">
+            <Chart still option={charts.resultDetail} height={250} />
+          </Block>
+        </div>
+        <Notes
+          items={family.filter((r) => r.notes).map((r) => ({ id: r.id, name: r.name, result: r.result, notes: r.notes, service: shortService(r.service) }))}
+          hideNames={hideNames}
+        />
+      </Sheet>
+
+      {/* ---------- Children board ---------- */}
+      <Sheet n={4} title="لوحة الأطفال" subtitle="فحص الأطفال قبل الاستلام" flow>
+        <div className="grid grid-cols-5 gap-[3mm]">
+          <Block title="نوع البرنامج" className="col-span-2">
+            <Chart still option={kids.services} height={220} />
+          </Block>
+          <Block title="النتيجة حسب نوع البرنامج" className="col-span-3">
+            <Chart still option={kids.serviceResult} height={220} />
           </Block>
         </div>
         <div className="mt-[3mm] grid grid-cols-3 gap-[3mm]">
-          <Block title="زمن صدور النتيجة">
-            <Chart still option={charts.tat} height={190} />
+          <Block title="الحالات حسب المدينة">
+            <Chart still option={kids.cities} height={200} />
           </Block>
-          <Block title="الفئات العمرية">
-            <Chart still option={charts.ages} height={190} />
+          <Block title="المدة من الاستلام حتى ظهور النتيجة">
+            {ck.hasDurationData ? <Chart still option={kids.duration} height={200} /> : <ReportEmpty text="محتاج تعبئة تاريخ استلام الحالة وتاريخ استلام النتيجة" />}
           </Block>
-          <Block title="النتائج حسب الخدمة">
-            <Chart still option={charts.resultByService} height={190} />
-          </Block>
-        </div>
-      </Sheet>
-
-      {/* ---------- Children ---------- */}
-      <Sheet n={4} title="فحص الأطفال قبل الاستلام" subtitle={`${ck.total} طفل في ${ck.hospitals} مستشفى`}>
-        <div className="grid grid-cols-4 gap-[3mm]">
-          <Kpi label="إجمالي الأطفال" value={ck.total} />
-          <Kpi label="سليم" value={ck.healthy} tone="good" />
-          <Kpi label="غير سليم" value={ck.unhealthy} tone={ck.unhealthy ? "bad" : undefined} />
-          <Kpi label="فحص قبل الاستلام" value={ck.beforeReceipt} />
-        </div>
-        <div className="mt-[3mm] grid grid-cols-5 gap-[3mm]">
-          <Block title="نتائج الفحص" className="col-span-2">
-            <Chart still option={kids.results} height={195} />
-          </Block>
-          <Block title="عمر الطفل حاليًا (بالشهور)" className="col-span-3">
-            <Chart still option={kids.ages} height={195} />
+          <Block title="الحالات حسب الفترة">
+            {kids.periodHasData ? <Chart still option={kids.period} height={200} /> : <ReportEmpty text="محتاج تعبئة تاريخ الاستلام أو تاريخ النتيجة" />}
           </Block>
         </div>
-        <div className="mt-[3mm]">
-          <Block title="الحالات حسب المستشفى">
-            <Chart still option={kids.hospitals} height={Math.min(215, Math.max(150, ck.hospitals * 23))} />
-          </Block>
-        </div>
-        {ck.withNotes > 0 && (
-          <div className="report-card mt-[3mm]">
-            <h3 className="mb-2 text-[10.5pt] font-bold">ملاحظات طبية تحتاج متابعة</h3>
-            <div className="grid grid-cols-2 gap-[2.5mm]">
-              {children
-                .filter((c) => c.notes)
-                .map((c) => (
-                  <div key={c.id} className="rounded-xl bg-refd-purple-50 px-3 py-2">
-                    <div className="flex justify-between text-[9pt] font-semibold">
-                      <span>{hideNames ? maskName(c.name) : c.name}</span>
-                      <span className={c.result === "سليم" ? "text-success" : "text-danger"}>{c.result || "—"}</span>
-                    </div>
-                    <p className="text-[8.5pt] text-muted">{c.notes}</p>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-        {data.psych.length > 0 && (
-          <div className="report-card mt-[3mm]">
-            <h3 className="mb-2 text-[10.5pt] font-bold">الفحص النفسي</h3>
-            <div className="grid grid-cols-3 gap-[2.5mm] text-[8.5pt]">
-              {data.psych.map((p) => (
-                <div key={p.id} className="rounded-xl border border-line px-3 py-2">
-                  <p className="font-semibold">{p.caseType || p.service}</p>
-                  <p className="text-muted">
-                    {p.city || "—"} · العمر {p.age ?? "—"} · {p.status || "—"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <Notes
+          items={children.filter((c) => c.notes).map((c) => ({ id: c.id, name: c.name, result: c.result, notes: c.notes, service: c.service }))}
+          hideNames={hideNames}
+        />
       </Sheet>
 
       {/* ---------- Data quality ---------- */}
@@ -451,17 +402,59 @@ function Block({ title, children, className = "" }: { title: string; children: R
   );
 }
 
-function Kpi({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: string; tone?: "good" | "bad" }) {
+function Kpi({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: string; tone?: "good" | "bad" | "warn" }) {
   return (
     <div className="report-card relative overflow-hidden">
       <span
-        className={`absolute inset-y-0 right-0 w-[1.3mm] ${tone === "good" ? "bg-success" : tone === "bad" ? "bg-danger" : "bg-refd-purple"}`}
+        className={`absolute inset-y-0 right-0 w-[1.3mm] ${tone === "good" ? "bg-success" : tone === "bad" ? "bg-danger" : tone === "warn" ? "bg-warning" : "bg-refd-purple"}`}
       />
       <p className="text-[8pt] text-muted">{label}</p>
       <p className="text-[18pt] leading-tight font-bold text-ink tabular-nums">{value}</p>
       {hint && <p className="text-[7.5pt] text-muted">{hint}</p>}
     </div>
   );
+}
+
+const pct = (part: number, total: number) => (total ? Math.round((part / total) * 1000) / 10 : 0);
+
+function ReportEmpty({ text, height = 200 }: { text: string; height?: number }) {
+  return (
+    <div className="grid place-items-center rounded-xl border border-dashed border-refd-purple-300 bg-refd-purple-50/60 p-4 text-center" style={{ height }}>
+      <p className="max-w-[50mm] text-[8.5pt] leading-relaxed text-muted">{text}</p>
+    </div>
+  );
+}
+
+type NoteItem = { id: string; name: string; result: string; notes: string; service: string };
+
+function Notes({ items, hideNames }: { items: NoteItem[]; hideNames: boolean }) {
+  return (
+    <div className="report-card mt-[3mm]">
+      <h3 className="mb-2 text-[10.5pt] font-bold">ملاحظات</h3>
+      {items.length === 0 ? (
+        <p className="text-[9pt] text-muted">لا توجد ملاحظات</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-[2.5mm]">
+          {items.map((n) => (
+            <div key={n.id} className="avoid-break rounded-xl bg-refd-purple-50 px-3 py-2">
+              <div className="flex justify-between gap-2 text-[9pt] font-semibold">
+                <span>{hideNames ? maskName(n.name) : n.name}</span>
+                <span className={noteTone(n.result)}>{n.result || "—"}</span>
+              </div>
+              <p className="text-[8.5pt] text-muted">{n.notes}</p>
+              <p className="text-[8pt] text-refd-purple">{n.service}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function noteTone(result: string): string {
+  if (result === "مناسب" || result === "سليم" || result.startsWith("مناسب")) return "text-success";
+  if (result.startsWith("غير") || result.startsWith("لا ")) return "text-danger";
+  return "text-warning";
 }
 
 function BigStat({ value, label, accent = false }: { value: ReactNode; label: string; accent?: boolean }) {
