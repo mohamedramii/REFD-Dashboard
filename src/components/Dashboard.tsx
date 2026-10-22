@@ -23,7 +23,7 @@ import { Chart } from "./charts/Chart";
 import { buildChildCharts, buildFamilyCharts } from "./charts/build";
 import { useDashboardData } from "./useDashboardData";
 import { Icons } from "./icons";
-import { ChartCard, EmptyChart, KpiCard, MultiSelect } from "./ui";
+import { ChartCard, ChartFilter, EmptyChart, KpiCard, MultiSelect } from "./ui";
 import { RecordsTable } from "./RecordsTable";
 import { QualityPanel } from "./QualityPanel";
 
@@ -109,6 +109,20 @@ export function Dashboard() {
   const charts = useMemo(() => buildFamilyCharts(fam, refDate), [fam, refDate]);
   const kidCharts = useMemo(() => buildChildCharts(kids, refDate), [kids, refDate]);
   const kidsHaveDates = children.some((c) => c.receivedDate || c.resultDate);
+
+  // Per-chart filters, applied on top of the board filters
+  const [famLocal, setFamLocal] = useState<Record<string, LocalFilter>>({});
+  const [kidLocal, setKidLocal] = useState<Record<string, LocalFilter>>({});
+  const famRows = (id: string) => (hasLocal(famLocal[id]) ? applyFamilyFilters(fam, { ...emptyFilters, ...famLocal[id] }) : fam);
+  const kidRows = (id: string) => (hasLocal(kidLocal[id]) ? applyChildFilters(kids, { ...emptyFilters, ...kidLocal[id] }) : kids);
+  const famChart = (id: string) => (hasLocal(famLocal[id]) ? buildFamilyCharts(famRows(id), refDate) : charts);
+  const kidChart = (id: string) => (hasLocal(kidLocal[id]) ? buildChildCharts(kidRows(id), refDate) : kidCharts);
+  const famFilter = (id: string, dims: OptionKey[]) => (
+    <ChartFilter dims={dims} labels={FAM_LABELS} options={famOptions} value={famLocal[id] ?? {}} onChange={(v) => setFamLocal((m) => ({ ...m, [id]: v }))} />
+  );
+  const kidFilter = (id: string, dims: OptionKey[]) => (
+    <ChartFilter dims={dims} labels={KID_LABELS} options={kidOptions} value={kidLocal[id] ?? {}} onChange={(v) => setKidLocal((m) => ({ ...m, [id]: v }))} />
+  );
 
   const toggleFam = (key: "cities" | "services" | "results", value: string) =>
     setFamFilters((f) => ({ ...f, [key]: f[key].includes(value) ? f[key].filter((v) => v !== value) : [...f[key], value] }));
@@ -217,7 +231,7 @@ export function Dashboard() {
               filters={famFilters}
               setFilters={setFamFilters}
               options={famOptions}
-              labels={{ cities: "المدينة", services: "نوع البرنامج", statuses: "حالة الخدمة", results: "النتيجة" }}
+              labels={FAM_LABELS}
               periodLabel="فترة الموعد"
             />
 
@@ -239,39 +253,44 @@ export function Dashboard() {
 
             <ChartCard
               title="المستفيدين حسب الفترة الزمنية"
-              action={<GranularityToggle value={granularity} onChange={setGranularity} />}
+              action={
+                <div className="flex items-center gap-2">
+                  {famFilter("period", ["cities", "services", "results"])}
+                  <GranularityToggle value={granularity} onChange={setGranularity} />
+                </div>
+              }
             >
-              {charts.periodHasData ? (
-                <Chart option={granularity === "year" ? charts.periodYear : charts.period} height={300} />
+              {famChart("period").periodHasData ? (
+                <Chart option={granularity === "year" ? famChart("period").periodYear : famChart("period").period} height={300} />
               ) : (
                 <EmptyChart text="مافيش مواعيد في الفترة دي" />
               )}
             </ChartCard>
 
             <div className="grid gap-5 lg:grid-cols-5">
-              <ChartCard title="النتيجة حسب النطاق الجغرافي" className="lg:col-span-3">
-                <Chart option={charts.cityResult} height={300} onClickName={(n) => toggleFam("cities", n)} />
+              <ChartCard title="النتيجة حسب النطاق الجغرافي" className="lg:col-span-3" action={famFilter("cityResult", ["cities", "services", "results"])}>
+                <Chart option={famChart("cityResult").cityResult} height={300} onClickName={(n) => toggleFam("cities", n)} />
               </ChartCard>
-              <ChartCard title="نوع البرنامج" className="lg:col-span-2">
-                <Chart option={charts.services} height={300} onClickName={(n) => toggleFam("services", n)} />
+              <ChartCard title="نوع البرنامج" className="lg:col-span-2" action={famFilter("services", ["cities", "services", "results"])}>
+                <Chart option={famChart("services").services} height={300} onClickName={(n) => toggleFam("services", n)} />
               </ChartCard>
             </div>
-            <ChartCard title="نوع البرنامج لكل مدينة">
-              <Chart option={charts.byCityStack} height={340} onClickName={(n) => toggleFam("cities", n)} />
+            <ChartCard title="نوع البرنامج لكل مدينة" action={famFilter("byCityStack", ["cities", "services"])}>
+              <Chart option={famChart("byCityStack").byCityStack} height={340} onClickName={(n) => toggleFam("cities", n)} />
             </ChartCard>
 
             <div className="grid gap-5 lg:grid-cols-2">
-              <ChartCard title="الفئات العمرية حسب نوع البرنامج">
-                <Chart option={charts.ageByProgram} height={290} />
+              <ChartCard title="الفئات العمرية حسب نوع البرنامج" action={famFilter("ages", ["cities", "services", "results"])}>
+                <Chart option={famChart("ages").ageByProgram} height={290} />
               </ChartCard>
-              <ChartCard title="تفاصيل النتائج">
-                <Chart option={charts.resultDetail} height={290} />
+              <ChartCard title="تفاصيل النتائج" action={famFilter("resultDetail", ["cities", "services", "results"])}>
+                <Chart option={famChart("resultDetail").resultDetail} height={290} />
               </ChartCard>
             </div>
 
-            <ChartCard title="ملاحظات">
+            <ChartCard title="ملاحظات" action={famFilter("notes", ["cities", "services", "results"])}>
               <ul className="scrollbar-thin grid max-h-[340px] gap-2 overflow-auto sm:grid-cols-2 xl:grid-cols-3">
-                {fam.filter((r) => r.notes).map((r) => (
+                {famRows("notes").filter((r) => r.notes).map((r) => (
                   <li key={r.id} className="rounded-2xl border border-line bg-refd-purple-50/60 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-semibold">{r.name}</span>
@@ -281,7 +300,7 @@ export function Dashboard() {
                     <p className="mt-1 text-[11px] text-refd-purple">{shortService(r.service)}</p>
                   </li>
                 ))}
-                {!fam.some((r) => r.notes) && <p className="text-sm text-muted">لا توجد ملاحظات</p>}
+                {!famRows("notes").some((r) => r.notes) && <p className="text-sm text-muted">لا توجد ملاحظات</p>}
               </ul>
             </ChartCard>
           </>
@@ -294,7 +313,7 @@ export function Dashboard() {
               filters={kidFilters}
               setFilters={setKidFilters}
               options={kidOptions}
-              labels={{ cities: "المدينة", services: "نوع الفحص", statuses: "حالة الخدمة", results: "نتيجة الفحص" }}
+              labels={KID_LABELS}
               periodLabel="الفترة"
               periodDisabled={!kidsHaveDates}
             />
@@ -308,28 +327,30 @@ export function Dashboard() {
             </div>
 
             <div className="grid gap-5 lg:grid-cols-5">
-              <ChartCard title="نوع البرنامج" className="lg:col-span-2">
-                <Chart option={kidCharts.services} height={300} onClickName={(n) => toggleKid("services", n)} />
+              <ChartCard title="نوع البرنامج" className="lg:col-span-2" action={kidFilter("services", ["cities", "services", "results"])}>
+                <Chart option={kidChart("services").services} height={300} onClickName={(n) => toggleKid("services", n)} />
               </ChartCard>
-              <ChartCard title="النتيجة حسب نوع البرنامج" className="lg:col-span-3">
-                <Chart option={kidCharts.serviceResult} height={300} />
+              <ChartCard title="النتيجة حسب نوع البرنامج" className="lg:col-span-3" action={kidFilter("serviceResult", ["cities", "services", "results"])}>
+                <Chart option={kidChart("serviceResult").serviceResult} height={300} />
               </ChartCard>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-3">
-              <ChartCard title="الحالات حسب المدينة" subtitle={ck.citiesFilled < ck.total ? `المدينة مكتوبة في ${ck.citiesFilled} من ${ck.total} حالات بس` : undefined}>
-                <Chart option={kidCharts.cities} height={260} onClickName={(n) => toggleKid("cities", n)} />
+              <ChartCard title="الحالات حسب المدينة" subtitle={ck.citiesFilled < ck.total ? `المدينة مكتوبة في ${ck.citiesFilled} من ${ck.total} حالات بس` : undefined}
+                action={kidFilter("cities", ["cities", "services", "results"])}
+              >
+                <Chart option={kidChart("cities").cities} height={260} onClickName={(n) => toggleKid("cities", n)} />
               </ChartCard>
-              <ChartCard title="المدة من الاستلام حتى ظهور النتيجة" subtitle="بالأيام">
+              <ChartCard title="المدة من الاستلام حتى ظهور النتيجة" subtitle="بالأيام" action={kidFilter("duration", ["cities", "services", "results"])}>
                 {ck.hasDurationData ? (
-                  <Chart option={kidCharts.duration} height={260} />
+                  <Chart option={kidChart("duration").duration} height={260} />
                 ) : (
                   <EmptyChart text={durationHint(data.childColumns)} />
                 )}
               </ChartCard>
-              <ChartCard title="الحالات حسب الفترة">
-                {kidCharts.periodHasData ? (
-                  <Chart option={kidCharts.period} height={260} />
+              <ChartCard title="الحالات حسب الفترة" action={kidFilter("period", ["cities", "services", "results"])}>
+                {kidChart("period").periodHasData ? (
+                  <Chart option={kidChart("period").period} height={260} />
                 ) : (
                   <EmptyChart text={periodHint(data.childColumns)} />
                 )}
@@ -337,9 +358,9 @@ export function Dashboard() {
             </div>
 
             <div>
-              <ChartCard title="ملاحظات">
+              <ChartCard title="ملاحظات" action={kidFilter("notes", ["cities", "services", "results"])}>
                 <ul className="scrollbar-thin grid max-h-[340px] gap-2 overflow-auto sm:grid-cols-2 xl:grid-cols-3">
-                  {kids.filter((c) => c.notes).map((c) => (
+                  {kidRows("notes").filter((c) => c.notes).map((c) => (
                     <li key={c.id} className="rounded-2xl border border-line bg-refd-purple-50/60 p-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold">{c.name}</span>
@@ -349,7 +370,7 @@ export function Dashboard() {
                       <p className="mt-1 text-[11px] text-refd-purple">{c.service}</p>
                     </li>
                   ))}
-                  {ck.withNotes === 0 && <p className="text-sm text-muted">لا توجد ملاحظات</p>}
+                  {!kidRows("notes").some((c) => c.notes) && <p className="text-sm text-muted">لا توجد ملاحظات</p>}
                 </ul>
               </ChartCard>
             </div>
@@ -409,6 +430,12 @@ function GranularityToggle({ value, onChange }: { value: Granularity; onChange: 
 }
 
 type OptionKey = "cities" | "services" | "statuses" | "results";
+type LocalFilter = Partial<Record<OptionKey, string[]>>;
+
+const FAM_LABELS: Record<OptionKey, string> = { cities: "المدينة", services: "نوع البرنامج", statuses: "حالة الخدمة", results: "النتيجة" };
+const KID_LABELS: Record<OptionKey, string> = { cities: "المدينة", services: "نوع البرنامج", statuses: "حالة الخدمة", results: "نتيجة الفحص" };
+
+const hasLocal = (f?: LocalFilter) => Boolean(f && Object.values(f).some((v) => v && v.length));
 
 function FiltersBar({
   filters,

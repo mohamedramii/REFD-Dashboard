@@ -154,6 +154,75 @@ export function MultiSelect({
   );
 }
 
+/** Per-chart filter: narrows one chart on top of the board filters */
+export function ChartFilter<K extends string>({
+  dims,
+  labels,
+  options,
+  value,
+  onChange,
+}: {
+  dims: K[];
+  labels: Record<K, string>;
+  options: Record<K, string[]>;
+  value: Partial<Record<K, string[]>>;
+  onChange: (v: Partial<Record<K, string[]>>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const active = dims.reduce((n, d) => n + (value[d]?.length ?? 0), 0);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="تصفية الرسم"
+        className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition ${
+          active ? "border-refd-purple bg-refd-purple-50 text-refd-purple" : "border-line bg-white text-muted hover:border-refd-purple-300"
+        }`}
+      >
+        <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 5h16l-6 8v6l-4-2v-4L4 5Z" />
+        </svg>
+        تصفية
+        {active > 0 && <span className="font-semibold">({active})</span>}
+      </button>
+      {open && (
+        <div className="absolute end-0 z-30 mt-2 w-72 max-w-[85vw] space-y-2 rounded-2xl border border-line bg-white p-3 shadow-xl">
+          {dims.map((d) => (
+            <MultiSelect
+              key={d}
+              label={labels[d]}
+              options={options[d]}
+              value={value[d] ?? []}
+              onChange={(v) => onChange({ ...value, [d]: v })}
+            />
+          ))}
+          {active > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange({})}
+              className="w-full rounded-lg px-2.5 py-2 text-start text-xs font-medium text-refd-purple hover:bg-refd-purple-50"
+            >
+              مسح تصفية الرسم
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Badge({ children, tone = "purple" }: { children: ReactNode; tone?: Tone }) {
   const t = toneStyles[tone];
   return (
