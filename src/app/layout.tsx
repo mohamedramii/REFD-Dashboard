@@ -22,7 +22,7 @@ const description =
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "رفد | لوحة متابعة الفحوصات",
+    default: "رفد | لوحة متابعة جمعية الوداد",
     template: "%s | رفد",
   },
   description,
@@ -37,13 +37,13 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ar_SA",
     siteName: "رفد",
-    title: "رفد | لوحة متابعة الفحوصات",
+    title: "رفد | لوحة متابعة جمعية الوداد",
     description,
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "رفد | لوحة متابعة الفحوصات",
+    title: "رفد | لوحة متابعة جمعية الوداد",
     description,
   },
   // The dashboard holds private health data, so search engines must not index it

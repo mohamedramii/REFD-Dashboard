@@ -156,7 +156,7 @@ export function familyAges(rows: FamilyRecord[], refDate: string): number[] {
 }
 
 export function familyKpis(rows: FamilyRecord[], refDate = "") {
-  const families = new Set(rows.map((r) => r.family).filter(Boolean));
+  const families = new Set(rows.filter((r) => r.service.includes("التحقق")).map((r) => r.family).filter(Boolean));
   const done = rows.filter((r) => isDone(r.status)).length;
   const booked = rows.filter((r) => r.resultDate);
   const completed = booked.filter((r) => r.result);

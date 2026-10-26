@@ -163,7 +163,7 @@ export function ReportView() {
       <Sheet n={1} title="الملخص التنفيذي" subtitle="نفس مؤشرات لوحة المتابعة">
         <h3 className="mb-[2mm] text-[10.5pt] font-bold text-refd-purple">لوحة الأسر</h3>
         <div className="grid grid-cols-3 gap-[3mm]">
-          <Kpi label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} />
+          <Kpi label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدينة`} />
           <Kpi label="المواعيد المحجوزة" value={fk.booked} />
           <Kpi label="ظهور النتيجة" value={fk.completed} hint={`${pct(fk.completed, fk.booked)}% من المواعيد`} />
           <Kpi label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="good" />
@@ -173,7 +173,7 @@ export function ReportView() {
 
         <h3 className="mt-[5mm] mb-[2mm] text-[10.5pt] font-bold text-refd-cyan-600">لوحة الأطفال</h3>
         <div className="grid grid-cols-5 gap-[3mm]">
-          <Kpi label="عدد الفحوصات" value={ck.total} hint={`${ck.services} أنواع فحص`} />
+          <Kpi label="عدد الفحوصات" value={ck.total} />
           <Kpi label="المواعيد المحجوزة" value={ck.booked} />
           <Kpi label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="good" />
           <Kpi label="غير سليم" value={ck.unhealthy} hint={`${ck.unhealthyRate}% من النتائج`} tone="bad" />
@@ -203,27 +203,27 @@ export function ReportView() {
           {charts.periodHasData ? <Chart still option={charts.period} height={230} /> : <ReportEmpty text="مافيش مواعيد في الفترة دي" height={230} />}
         </Block>
         <div className="mt-[3mm] grid grid-cols-5 gap-[3mm]">
-          <Block title="النتيجة حسب النطاق الجغرافي" className="col-span-3">
-            <Chart still option={charts.cityResult} height={230} />
-          </Block>
           <Block title="نوع البرنامج" className="col-span-2">
             <Chart still option={charts.services} height={230} />
           </Block>
+          <Block title="تفاصيل النتائج" className="col-span-3">
+            <Chart still option={charts.resultDetail} height={230} />
+          </Block>
         </div>
         <div className="mt-[3mm]">
-          <Block title="نوع البرنامج لكل مدينة">
+          <Block title="النطاق الجغرافي حسب نوع البرنامج">
             <Chart still option={charts.byCityStack} height={250} />
           </Block>
         </div>
       </Sheet>
 
-      <Sheet n={3} title="لوحة الأسر" subtitle="الأعمار والنتائج والملاحظات" flow>
-        <div className="grid grid-cols-2 gap-[3mm]">
-          <Block title="الفئات العمرية حسب نوع البرنامج">
-            <Chart still option={charts.ageByProgram} height={250} />
-          </Block>
-          <Block title="تفاصيل النتائج">
-            <Chart still option={charts.resultDetail} height={250} />
+      <Sheet n={3} title="لوحة الأسر" subtitle="الأعمار والمدة الزمنية والملاحظات" flow>
+        <Block title="الفئات العمرية حسب نوع البرنامج">
+          <Chart still option={charts.ageByProgram} height={250} />
+        </Block>
+        <div className="mt-[3mm]">
+          <Block title="المدة من الفحص حتى ظهور النتيجة (بالأيام)">
+            {charts.hasTat ? <Chart still option={charts.tat} height={200} /> : <ReportEmpty text="محتاج تعبئة تاريخ الفحوصات المخبرية وتاريخ النتيجة" />}
           </Block>
         </div>
         <Notes
@@ -242,10 +242,12 @@ export function ReportView() {
             <Chart still option={kids.serviceResult} height={220} />
           </Block>
         </div>
-        <div className="mt-[3mm] grid grid-cols-3 gap-[3mm]">
-          <Block title="الحالات حسب المدينة">
-            <Chart still option={kids.cities} height={200} />
+        <div className="mt-[3mm]">
+          <Block title="النطاق الجغرافي لكل خدمة">
+            <Chart still option={kids.cityService} height={220} />
           </Block>
+        </div>
+        <div className="mt-[3mm] grid grid-cols-2 gap-[3mm]">
           <Block title="المدة من الاستلام حتى ظهور النتيجة">
             {ck.hasDurationData ? <Chart still option={kids.duration} height={200} /> : <ReportEmpty text="محتاج تعبئة تاريخ استلام الحالة وتاريخ استلام النتيجة" />}
           </Block>

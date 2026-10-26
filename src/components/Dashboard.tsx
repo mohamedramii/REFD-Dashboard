@@ -151,8 +151,7 @@ export function Dashboard() {
           <Image src="/refd-logo.png" alt="رفد" width={1213} height={646} priority className="h-12 w-auto" />
           <div className="hidden h-9 w-px bg-line md:block" />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-bold text-ink md:text-xl">لوحة متابعة الفحوصات</h1>
-            <p className="truncate text-xs text-muted">التحقق الصحي للأسر · فحص الأطفال قبل الاستلام</p>
+            <h1 className="truncate text-lg font-bold text-ink md:text-xl">لوحة متابعة جمعية الوداد</h1>
           </div>
           <div className="flex items-center gap-2">
             {data && (
@@ -237,14 +236,13 @@ export function Dashboard() {
 
             {/* Hints only on the first card and the percentage cards (client request) */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدن`} icon={<Icons.clipboard />} />
+              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدينة`} icon={<Icons.clipboard />} />
               <KpiCard label="المواعيد المحجوزة" value={fk.booked} tone="cyan" icon={<Icons.calendar />} />
               <KpiCard
                 label="ظهور النتيجة"
                 value={fk.completed}
                 tone="purple"
                 icon={<Icons.check />}
-                progress={fk.booked ? (fk.completed / fk.booked) * 100 : 0}
               />
               <KpiCard label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={fk.suitableRate} />
               <KpiCard label="غير مناسب" value={fk.unsuitable} hint={`${fk.unsuitableRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={fk.unsuitableRate} />
@@ -268,25 +266,26 @@ export function Dashboard() {
             </ChartCard>
 
             <div className="grid gap-5 lg:grid-cols-5">
-              <ChartCard title="النتيجة حسب النطاق الجغرافي" className="lg:col-span-3" action={famFilter("cityResult", ["cities", "services", "results"])}>
-                <Chart option={famChart("cityResult").cityResult} height={300} onClickName={(n) => toggleFam("cities", n)} />
-              </ChartCard>
               <ChartCard title="نوع البرنامج" className="lg:col-span-2" action={famFilter("services", ["cities", "services", "results"])}>
                 <Chart option={famChart("services").services} height={300} onClickName={(n) => toggleFam("services", n)} />
               </ChartCard>
+              <ChartCard title="تفاصيل النتائج" className="lg:col-span-3" action={famFilter("resultDetail", ["cities", "services", "results"])}>
+                <Chart option={famChart("resultDetail").resultDetail} height={300} />
+              </ChartCard>
             </div>
-            <ChartCard title="نوع البرنامج لكل مدينة" action={famFilter("byCityStack", ["cities", "services"])}>
+            <ChartCard title="النطاق الجغرافي حسب نوع البرنامج" action={famFilter("byCityStack", ["cities", "services"])}>
               <Chart option={famChart("byCityStack").byCityStack} height={340} onClickName={(n) => toggleFam("cities", n)} />
             </ChartCard>
-
-            <div className="grid gap-5 lg:grid-cols-2">
-              <ChartCard title="الفئات العمرية حسب نوع البرنامج" action={famFilter("ages", ["cities", "services", "results"])}>
-                <Chart option={famChart("ages").ageByProgram} height={290} />
-              </ChartCard>
-              <ChartCard title="تفاصيل النتائج" action={famFilter("resultDetail", ["cities", "services", "results"])}>
-                <Chart option={famChart("resultDetail").resultDetail} height={290} />
-              </ChartCard>
-            </div>
+            <ChartCard title="الفئات العمرية حسب نوع البرنامج" action={famFilter("ages", ["cities", "services", "results"])}>
+              <Chart option={famChart("ages").ageByProgram} height={320} />
+            </ChartCard>
+            <ChartCard title="المدة من الفحص حتى ظهور النتيجة" subtitle="بالأيام" action={famFilter("tat", ["cities", "services", "results"])}>
+              {famChart("tat").hasTat ? (
+                <Chart option={famChart("tat").tat} height={280} />
+              ) : (
+                <EmptyChart text="محتاج تعبئة «تاريخ الفحوصات المخبرية» و«تاريخ النتيجة» في شيت الأسر" height={280} />
+              )}
+            </ChartCard>
 
             <ChartCard title="ملاحظات" action={famFilter("notes", ["cities", "services", "results"])}>
               <ul className="scrollbar-thin grid max-h-[340px] gap-2 overflow-auto sm:grid-cols-2 xl:grid-cols-3">
@@ -319,7 +318,7 @@ export function Dashboard() {
             />
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-              <KpiCard label="عدد الفحوصات" value={ck.total} hint={`${ck.services} أنواع فحص`} icon={<Icons.clipboard />} />
+              <KpiCard label="عدد الفحوصات" value={ck.total} icon={<Icons.clipboard />} />
               <KpiCard label="المواعيد المحجوزة" value={ck.booked} tone="purple" icon={<Icons.calendar />} />
               <KpiCard label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
               <KpiCard label="غير سليم" value={ck.unhealthy} hint={`${ck.unhealthyRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={ck.unhealthyRate} />
@@ -335,12 +334,11 @@ export function Dashboard() {
               </ChartCard>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-3">
-              <ChartCard title="الحالات حسب المدينة" subtitle={ck.citiesFilled < ck.total ? `المدينة مكتوبة في ${ck.citiesFilled} من ${ck.total} حالات بس` : undefined}
-                action={kidFilter("cities", ["cities", "services", "results"])}
-              >
-                <Chart option={kidChart("cities").cities} height={260} onClickName={(n) => toggleKid("cities", n)} />
-              </ChartCard>
+            <ChartCard title="النطاق الجغرافي لكل خدمة" action={kidFilter("cities", ["cities", "services", "results"])}>
+              <Chart option={kidChart("cities").cityService} height={320} onClickName={(n) => toggleKid("cities", n)} />
+            </ChartCard>
+
+            <div className="grid gap-5 lg:grid-cols-2">
               <ChartCard title="المدة من الاستلام حتى ظهور النتيجة" subtitle="بالأيام" action={kidFilter("duration", ["cities", "services", "results"])}>
                 {ck.hasDurationData ? (
                   <Chart option={kidChart("duration").duration} height={260} />

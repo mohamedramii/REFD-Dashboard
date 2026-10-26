@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "رفد · لوحة متابعة الفحوصات",
+    name: "رفد · لوحة متابعة جمعية الوداد",
     short_name: "رفد",
     description: "متابعة فحوصات التحقق الصحي للأسر وفحص الأطفال قبل الاستلام",
     lang: "ar",

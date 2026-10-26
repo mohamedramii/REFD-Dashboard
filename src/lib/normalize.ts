@@ -139,6 +139,8 @@ export function normalizeFamily(rows: RawSheet, issues: DataIssue[]): FamilyReco
     name: (h) => h === "الاسم",
     family: (h) => h.includes("الاسره"),
   });
+  // The original sheet keeps the family number in column A with no header
+  if (col.family < 0 && !headers[0]) col.family = 0;
 
   const out: FamilyRecord[] = [];
   let lastFamily: string | null = null;

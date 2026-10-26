@@ -191,6 +191,7 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     ages: columns(ageBuckets, PALETTE[0], "عدد الأشخاص"),
     ageByProgram,
     tat: columns(tatBuckets, PALETTE[1], "عدد النتائج"),
+    hasTat: tat.length > 0,
     famSizes: columns(famSizes, PALETTE[2], "عدد الأسر"),
     radar: radar(radarIndicators, radarSeries),
   };
@@ -215,12 +216,23 @@ export function buildChildCharts(children: ChildRecord[], refDate: string) {
     .map((c) => daysBetween(c.receivedDate!, c.resultDate!))
     .filter((d) => d >= 0);
 
+  const kidCities = countBy(children, (c) => c.city).map((c) => c.name);
+  const cityService = stackedBar(
+    kidCities,
+    services.map((s, i) => ({
+      name: s,
+      data: kidCities.map((city) => children.filter((c) => label(c.city) === city && label(c.service) === s).length),
+      color: PALETTE[i % PALETTE.length],
+    })),
+  );
+
   const period = periodStack(children, childDate, (c) => c.result || PENDING_RESULT, results, STATUS_COLORS);
 
   return {
     results: donut(countBy(children, (c) => c.result || PENDING_RESULT), "طفل", true),
     services: donut(countBy(children, (c) => c.service), "فحص", false, true),
     serviceResult,
+    cityService,
     cities: horizontalBar(countBy(children, (c) => c.city), PALETTE[1], 20),
     hospitals: horizontalBar(countBy(children, (c) => c.hospital), PALETTE[1], 22),
     duration: columns(bucket(durations, [0, 3, 7, 14, 30, 10000], ["0–2 يوم", "3–6 أيام", "1–2 أسبوع", "2–4 أسابيع", "+شهر"]), PALETTE[1], "عدد الحالات"),
