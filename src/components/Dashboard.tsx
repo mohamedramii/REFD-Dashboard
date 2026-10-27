@@ -20,7 +20,7 @@ import {
 } from "@/lib/analytics";
 import type { ChildDateColumns } from "@/lib/types";
 import { Chart } from "./charts/Chart";
-import { buildChildCharts, buildFamilyCharts } from "./charts/build";
+import { buildChildCharts, buildFamilyCharts, statusChart } from "./charts/build";
 import { useDashboardData } from "./useDashboardData";
 import { Icons } from "./icons";
 import { ChartCard, ChartFilter, EmptyChart, KpiCard, MultiSelect } from "./ui";
@@ -61,6 +61,7 @@ export function Dashboard() {
   const [famFilters, setFamFilters] = useState<Filters>(emptyFilters);
   const [kidFilters, setKidFilters] = useState<Filters>(emptyFilters);
   const [granularity, setGranularity] = useState<Granularity>("month");
+  const [kidGranularity, setKidGranularity] = useState<Granularity>("month");
   // The current time is read in the browser only, so the page can be prerendered without a changing value
   const [now, setNow] = useState(0);
 
@@ -126,6 +127,8 @@ export function Dashboard() {
 
   const toggleFam = (key: "cities" | "services" | "results", value: string) =>
     setFamFilters((f) => ({ ...f, [key]: f[key].includes(value) ? f[key].filter((v) => v !== value) : [...f[key], value] }));
+  const toggleFamStatus = (value: string) =>
+    setFamFilters((f) => ({ ...f, statuses: f.statuses.includes(value) ? f.statuses.filter((v) => v !== value) : [...f.statuses, value] }));
   const toggleKid = (key: "cities" | "services" | "results", value: string) =>
     setKidFilters((f) => ({ ...f, [key]: f[key].includes(value) ? f[key].filter((v) => v !== value) : [...f[key], value] }));
 
@@ -235,9 +238,8 @@ export function Dashboard() {
             />
 
             {/* Hints only on the first card and the percentage cards (client request) */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
               <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدينة`} icon={<Icons.clipboard />} />
-              <KpiCard label="المواعيد المحجوزة" value={fk.booked} tone="cyan" icon={<Icons.calendar />} />
               <KpiCard
                 label="ظهور النتيجة"
                 value={fk.completed}
@@ -248,6 +250,10 @@ export function Dashboard() {
               <KpiCard label="غير مناسب" value={fk.unsuitable} hint={`${fk.unsuitableRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={fk.unsuitableRate} />
               <KpiCard label="بحاجة لمتابعة" value={fk.followUp} hint={`${fk.followUpRate}% من النتائج`} tone="warning" icon={<Icons.clock />} progress={fk.followUpRate} />
             </div>
+
+            <ChartCard title="المواعيد المحجوزة حسب حالة الخدمة" action={famFilter("status", ["cities", "services", "results"])}>
+              <Chart option={statusChart(famRows("status"), famOptions.statuses)} height={280} onClickName={(n) => toggleFamStatus(n)} />
+            </ChartCard>
 
             <ChartCard
               title="المستفيدين حسب الفترة الزمنية"
@@ -322,7 +328,7 @@ export function Dashboard() {
               <KpiCard label="المواعيد المحجوزة" value={ck.booked} tone="purple" icon={<Icons.calendar />} />
               <KpiCard label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
               <KpiCard label="غير سليم" value={ck.unhealthy} hint={`${ck.unhealthyRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={ck.unhealthyRate} />
-              <KpiCard label="من الاستلام للنتيجة" value={ck.avgDuration !== null ? `${ck.avgDuration}` : "—"} tone="warning" icon={<Icons.clock />} />
+              <KpiCard label="من الاستلام للنتيجة" value={ck.avgDuration !== null ? `${ck.avgDuration} يوم` : "—"} hint={ck.avgDuration !== null ? "متوسط بالأيام" : undefined} tone="warning" icon={<Icons.clock />} />
             </div>
 
             <div className="grid gap-5 lg:grid-cols-5">
@@ -338,19 +344,28 @@ export function Dashboard() {
               <Chart option={kidChart("cities").cityService} height={320} onClickName={(n) => toggleKid("cities", n)} />
             </ChartCard>
 
-            <div className="grid gap-5 lg:grid-cols-2">
+            <ChartCard
+              title="عدد الفحوصات حسب الفترة الزمنية"
+              action={
+                <div className="flex items-center gap-2">
+                  {kidFilter("period", ["cities", "services", "results"])}
+                  <GranularityToggle value={kidGranularity} onChange={setKidGranularity} />
+                </div>
+              }
+            >
+              {kidChart("period").periodHasData ? (
+                <Chart option={kidGranularity === "year" ? kidChart("period").periodYear : kidChart("period").period} height={300} />
+              ) : (
+                <EmptyChart text={periodHint(data.childColumns)} />
+              )}
+            </ChartCard>
+
+            <div>
               <ChartCard title="المدة من الاستلام حتى ظهور النتيجة" subtitle="بالأيام" action={kidFilter("duration", ["cities", "services", "results"])}>
                 {ck.hasDurationData ? (
                   <Chart option={kidChart("duration").duration} height={260} />
                 ) : (
                   <EmptyChart text={durationHint(data.childColumns)} />
-                )}
-              </ChartCard>
-              <ChartCard title="الحالات حسب الفترة" action={kidFilter("period", ["cities", "services", "results"])}>
-                {kidChart("period").periodHasData ? (
-                  <Chart option={kidChart("period").period} height={260} />
-                ) : (
-                  <EmptyChart text={periodHint(data.childColumns)} />
                 )}
               </ChartCard>
             </div>

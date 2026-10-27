@@ -15,7 +15,7 @@ import {
 } from "@/lib/analytics";
 import { buildInsights } from "@/lib/insights";
 import { Chart } from "../charts/Chart";
-import { buildChildCharts, buildFamilyCharts } from "../charts/build";
+import { buildChildCharts, buildFamilyCharts, statusChart } from "../charts/build";
 import { horizontalBar } from "../charts/options";
 import { Icons } from "../icons";
 import { useDashboardData } from "../useDashboardData";
@@ -162,13 +162,18 @@ export function ReportView() {
       {/* ---------- Executive summary ---------- */}
       <Sheet n={1} title="الملخص التنفيذي" subtitle="نفس مؤشرات لوحة المتابعة">
         <h3 className="mb-[2mm] text-[10.5pt] font-bold text-refd-purple">لوحة الأسر</h3>
-        <div className="grid grid-cols-3 gap-[3mm]">
+        <div className="grid grid-cols-5 gap-[3mm]">
           <Kpi label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدينة`} />
-          <Kpi label="المواعيد المحجوزة" value={fk.booked} />
           <Kpi label="ظهور النتيجة" value={fk.completed} hint={`${pct(fk.completed, fk.booked)}% من المواعيد`} />
           <Kpi label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="good" />
           <Kpi label="غير مناسب" value={fk.unsuitable} hint={`${fk.unsuitableRate}% من النتائج`} tone="bad" />
           <Kpi label="بحاجة لمتابعة" value={fk.followUp} hint={`${fk.followUpRate}% من النتائج`} tone="warn" />
+        </div>
+
+        <div className="mt-[3mm]">
+          <Block title="المواعيد المحجوزة حسب حالة الخدمة">
+            <Chart still option={statusChart(family, data.lists?.family.statuses ?? [])} height={170} />
+          </Block>
         </div>
 
         <h3 className="mt-[5mm] mb-[2mm] text-[10.5pt] font-bold text-refd-cyan-600">لوحة الأطفال</h3>
@@ -177,7 +182,7 @@ export function ReportView() {
           <Kpi label="المواعيد المحجوزة" value={ck.booked} />
           <Kpi label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="good" />
           <Kpi label="غير سليم" value={ck.unhealthy} hint={`${ck.unhealthyRate}% من النتائج`} tone="bad" />
-          <Kpi label="من الاستلام للنتيجة" value={ck.avgDuration ?? "—"} hint={ck.avgDuration !== null ? "يوم في المتوسط" : undefined} tone="warn" />
+          <Kpi label="من الاستلام للنتيجة" value={ck.avgDuration !== null ? `${ck.avgDuration} يوم` : "—"} hint={ck.avgDuration !== null ? "يوم في المتوسط" : undefined} tone="warn" />
         </div>
 
         <div className="report-card mt-[5mm]">
@@ -251,7 +256,7 @@ export function ReportView() {
           <Block title="المدة من الاستلام حتى ظهور النتيجة">
             {ck.hasDurationData ? <Chart still option={kids.duration} height={200} /> : <ReportEmpty text="محتاج تعبئة تاريخ استلام الحالة وتاريخ استلام النتيجة" />}
           </Block>
-          <Block title="الحالات حسب الفترة">
+          <Block title="عدد الفحوصات حسب الفترة الزمنية">
             {kids.periodHasData ? <Chart still option={kids.period} height={200} /> : <ReportEmpty text="محتاج تعبئة تاريخ الاستلام أو تاريخ النتيجة" />}
           </Block>
         </div>

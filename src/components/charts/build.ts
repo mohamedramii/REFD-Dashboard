@@ -72,6 +72,17 @@ function periodStack<T>(
   return { option, hasData: dated.length > 0, missing: rows.length - dated.length };
 }
 
+/** Booked appointments by service status (column J), following the sheet dropdown order */
+export function statusChart(rows: FamilyRecord[], statuses: string[]) {
+  const names = uniq([...statuses.filter(Boolean), ...rows.map((r) => label(r.status))]);
+  const sorted = [...statuses.filter(Boolean), ...names.filter((n) => !statuses.includes(n))];
+  return columns(
+    sorted.map((name) => ({ name, value: rows.filter((r) => label(r.status) === name).length })),
+    PALETTE[1],
+    "عدد الأشخاص",
+  );
+}
+
 export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
   const services = uniq(filtered.map((r) => shortService(r.service)));
   const cities = countBy(filtered, (r) => r.city).map((c) => c.name);
@@ -169,8 +180,10 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     return { name: c.name, value: [c.value, k.families, k.booked, k.suitableRate, districts], color: PALETTE[i % PALETTE.length] };
   });
 
-  const period = periodStack(filtered, (r) => r.resultDate, (r) => resultGroup(r.result), [...groupsPresent], STATUS_COLORS, "month");
-  const periodYear = periodStack(filtered, (r) => r.resultDate, (r) => resultGroup(r.result), [...groupsPresent], STATUS_COLORS, "year");
+  // Split by program type (client request), same colors as the program charts
+  const programOf = (r: FamilyRecord) => shortService(r.service);
+  const period = periodStack(filtered, (r) => r.resultDate, programOf, services, undefined, "month");
+  const periodYear = periodStack(filtered, (r) => r.resultDate, programOf, services, undefined, "year");
 
   return {
     byCityStack,
@@ -226,7 +239,10 @@ export function buildChildCharts(children: ChildRecord[], refDate: string) {
     })),
   );
 
-  const period = periodStack(children, childDate, (c) => c.result || PENDING_RESULT, results, STATUS_COLORS);
+  // Same as the family board: every month (or year), split by program type
+  const programOf = (c: ChildRecord) => label(c.service);
+  const period = periodStack(children, childDate, programOf, services, undefined, "month");
+  const periodYear = periodStack(children, childDate, programOf, services, undefined, "year");
 
   return {
     results: donut(countBy(children, (c) => c.result || PENDING_RESULT), "طفل", true),
@@ -237,6 +253,7 @@ export function buildChildCharts(children: ChildRecord[], refDate: string) {
     hospitals: horizontalBar(countBy(children, (c) => c.hospital), PALETTE[1], 22),
     duration: columns(bucket(durations, [0, 3, 7, 14, 30, 10000], ["0–2 يوم", "3–6 أيام", "1–2 أسبوع", "2–4 أسابيع", "+شهر"]), PALETTE[1], "عدد الحالات"),
     period: period.option,
+    periodYear: periodYear.option,
     periodHasData: period.hasData,
     ages: columns(bucket(months, [0, 3, 6, 9, 12, 1000], ["0–2 شهر", "3–5", "6–8", "9–11", "سنة+"]), PALETTE[0], "عدد الأطفال"),
     notes: donut(
