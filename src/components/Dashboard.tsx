@@ -239,7 +239,7 @@ export function Dashboard() {
 
             {/* Hints only on the first card and the percentage cards (client request) */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families} أسرة · ${fk.cities} مدينة`} icon={<Icons.clipboard />} />
+              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families ? `${fk.families} أسرة · ` : ""}${fk.cities} مدينة`} icon={<Icons.clipboard />} />
               <KpiCard
                 label="ظهور النتيجة"
                 value={fk.completed}

@@ -91,7 +91,7 @@ async function resolveTabs(cfg: NonNullable<ReturnType<typeof config>>, token: s
     titles.find((t) => keywords.every((k) => norm(t).includes(norm(k))));
 
   return {
-    family: pick(cfg.tabs.family, ["التحقق"]) ?? pick(cfg.tabs.family, ["الاسره"]),
+    family: pick(cfg.tabs.family, ["التحقق"]) ?? pick(cfg.tabs.family, ["الاسر"]),
     children: pick(cfg.tabs.children, ["الاطفال"]),
     psych: pick(cfg.tabs.psych, ["النفسي"]),
     titles,
