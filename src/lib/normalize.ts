@@ -134,7 +134,7 @@ export function normalizeFamily(rows: RawSheet, issues: DataIssue[]): FamilyReco
     service: (h) => h.includes("الخدمه"),
     result: (h) => h === "النتيجه",
     notes: (h) => h.startsWith("ملاحظات"),
-    city: (h) => h === "المدينه",
+    city: (h) => h === "المنطقه" || h === "المدينه",
     district: (h) => h.includes("الحي"),
     name: (h) => h === "الاسم",
     family: (h) => h.includes("الاسره"),
@@ -236,7 +236,7 @@ export function normalizeChildren(rows: RawSheet, issues: DataIssue[], columns?:
     result: (h) => h === "النتيجه",
     notes: (h) => h.startsWith("ملاحظات"),
     hospital: (h) => h.includes("المستشفي"),
-    city: (h) => h === "المدينه",
+    city: (h) => h === "المنطقه" || h === "المدينه",
     gender: (h) => h.includes("الجنس"),
     guardian: (h) => h.includes("الحاضنه"),
     name: (h) => h === "الاسم",
@@ -346,6 +346,6 @@ export function fieldListsFromColumns(columns: { header: string; list: string[] 
     services: find((h) => h.includes("الخدمه") && !h.includes("حاله")),
     statuses: find((h) => h.includes("حاله الخدمه")),
     results: find((h) => h === "النتيجه"),
-    cities: find((h) => h === "المدينه"),
+    cities: find((h) => h === "المنطقه" || h === "المدينه"),
   };
 }

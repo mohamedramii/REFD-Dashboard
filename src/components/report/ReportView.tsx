@@ -56,7 +56,7 @@ export function ReportView() {
       completeness(family, [
         { key: "requestNo", label: "رقم الطلب" },
         { key: "birthDate", label: "تاريخ الميلاد" },
-        { key: "city", label: "المدينة" },
+        { key: "city", label: "المنطقة" },
         { key: "district", label: "الحي" },
         { key: "result", label: "النتيجة" },
         { key: "labDate", label: "تاريخ الفحوصات" },
@@ -163,7 +163,7 @@ export function ReportView() {
       <Sheet n={1} title="الملخص التنفيذي" subtitle="نفس مؤشرات لوحة المتابعة">
         <h3 className="mb-[2mm] text-[10.5pt] font-bold text-refd-purple">لوحة الأسر</h3>
         <div className="grid grid-cols-5 gap-[3mm]">
-          <Kpi label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families ? `${fk.families} أسرة · ` : ""}${fk.cities} مدينة`} />
+          <Kpi label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families ? `${fk.families} أسرة · ` : ""}${fk.cities} منطقة`} />
           <Kpi label="ظهور النتيجة" value={fk.completed} hint={`${pct(fk.completed, fk.booked)}% من المواعيد`} />
           <Kpi label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="good" />
           <Kpi label="غير مناسب" value={fk.unsuitable} hint={`${fk.unsuitableRate}% من النتائج`} tone="bad" />

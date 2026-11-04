@@ -46,8 +46,9 @@ function timeAgo(iso: string, now: number) {
 }
 
 /** The original list in its order, followed by extra values from the data sorted alphabetically */
-function withList(list: string[] | undefined, values: string[]): string[] {
-  const base = (list ?? []).filter(Boolean);
+function withList(list: string[] | undefined, values: string[], onlyPresent = false): string[] {
+  // onlyPresent drops dropdown options no row uses (the region dropdown still lists the old city names)
+  const base = (list ?? []).filter((v) => v && (!onlyPresent || values.includes(v)));
   const extra = uniq(values.filter((v) => !base.includes(v)));
   return [...base, ...extra];
 }
@@ -88,7 +89,7 @@ export function Dashboard() {
   const kidLists = data?.lists?.children;
   const famOptions = useMemo(
     () => ({
-      cities: withList(famLists?.cities, family.map((r) => label(r.city))),
+      cities: withList(famLists?.cities, family.map((r) => label(r.city)), true),
       services: withList(famLists?.services.map(shortService), family.map((r) => shortService(r.service))),
       statuses: withList(famLists?.statuses, family.map((r) => label(r.status))),
       results: withList(famLists?.results, family.map((r) => label(r.result))),
@@ -97,7 +98,7 @@ export function Dashboard() {
   );
   const kidOptions = useMemo(
     () => ({
-      cities: withList(kidLists?.cities, children.map((c) => label(c.city))),
+      cities: withList(kidLists?.cities, children.map((c) => label(c.city)), true),
       services: withList(kidLists?.services, children.map((c) => label(c.service))),
       statuses: withList(kidLists?.statuses, children.map((c) => label(c.status))),
       results: withList(kidLists?.results, children.map((c) => c.result || PENDING_RESULT)),
@@ -137,7 +138,7 @@ export function Dashboard() {
       completeness(family, [
         { key: "requestNo", label: "رقم الطلب" },
         { key: "birthDate", label: "تاريخ الميلاد" },
-        { key: "city", label: "المدينة" },
+        { key: "city", label: "المنطقة" },
         { key: "district", label: "الحي" },
         { key: "result", label: "النتيجة" },
         { key: "labDate", label: "تاريخ الفحوصات" },
@@ -234,12 +235,12 @@ export function Dashboard() {
               setFilters={setFamFilters}
               options={famOptions}
               labels={FAM_LABELS}
-              periodLabel="فترة الموعد"
+              periodLabel="فترة الفحص"
             />
 
             {/* Hints only on the first card and the percentage cards (client request) */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families ? `${fk.families} أسرة · ` : ""}${fk.cities} مدينة`} icon={<Icons.clipboard />} />
+              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={`${fk.families ? `${fk.families} أسرة · ` : ""}${fk.cities} منطقة`} icon={<Icons.clipboard />} />
               <KpiCard
                 label="ظهور النتيجة"
                 value={fk.completed}
@@ -445,8 +446,8 @@ function GranularityToggle({ value, onChange }: { value: Granularity; onChange: 
 type OptionKey = "cities" | "services" | "statuses" | "results";
 type LocalFilter = Partial<Record<OptionKey, string[]>>;
 
-const FAM_LABELS: Record<OptionKey, string> = { cities: "المدينة", services: "نوع البرنامج", statuses: "حالة الخدمة", results: "النتيجة" };
-const KID_LABELS: Record<OptionKey, string> = { cities: "المدينة", services: "نوع البرنامج", statuses: "حالة الخدمة", results: "نتيجة الفحص" };
+const FAM_LABELS: Record<OptionKey, string> = { cities: "المنطقة", services: "نوع البرنامج", statuses: "حالة الخدمة", results: "النتيجة" };
+const KID_LABELS: Record<OptionKey, string> = { cities: "المنطقة", services: "نوع البرنامج", statuses: "حالة الخدمة", results: "نتيجة الفحص" };
 
 const hasLocal = (f?: LocalFilter) => Boolean(f && Object.values(f).some((v) => v && v.length));
 

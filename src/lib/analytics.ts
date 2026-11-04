@@ -74,15 +74,15 @@ export function label(value: string): string {
   return value || UNKNOWN;
 }
 
-/** A booked appointment = a row with a result date (the client's definition); the period filter uses it */
+/** The period filter uses the lab test date, same as the period chart (client request) */
 export function applyFamilyFilters(rows: FamilyRecord[], f: Filters): FamilyRecord[] {
   return rows.filter((r) => {
     if (f.cities.length && !f.cities.includes(label(r.city))) return false;
     if (f.services.length && !f.services.includes(shortService(r.service))) return false;
     if (f.statuses.length && !f.statuses.includes(label(r.status))) return false;
     if (f.results.length && !f.results.includes(label(r.result))) return false;
-    if (f.from && (!r.resultDate || r.resultDate < f.from)) return false;
-    if (f.to && (!r.resultDate || r.resultDate > f.to)) return false;
+    if (f.from && (!r.labDate || r.labDate < f.from)) return false;
+    if (f.to && (!r.labDate || r.labDate > f.to)) return false;
     return true;
   });
 }

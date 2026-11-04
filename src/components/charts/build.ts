@@ -180,10 +180,10 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     return { name: c.name, value: [c.value, k.families, k.booked, k.suitableRate, districts], color: PALETTE[i % PALETTE.length] };
   });
 
-  // Split by program type (client request), same colors as the program charts
+  // Split by program type and dated by the lab test date (client request)
   const programOf = (r: FamilyRecord) => shortService(r.service);
-  const period = periodStack(filtered, (r) => r.resultDate, programOf, services, undefined, "month");
-  const periodYear = periodStack(filtered, (r) => r.resultDate, programOf, services, undefined, "year");
+  const period = periodStack(filtered, (r) => r.labDate, programOf, services, undefined, "month");
+  const periodYear = periodStack(filtered, (r) => r.labDate, programOf, services, undefined, "year");
 
   return {
     byCityStack,
