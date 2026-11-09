@@ -87,8 +87,8 @@ export function applyFamilyFilters(rows: FamilyRecord[], f: Filters): FamilyReco
   });
 }
 
-/** Child date used by the period filter: the result date, falling back to the received date */
-export const childDate = (c: ChildRecord) => c.resultDate ?? c.receivedDate ?? null;
+/** Child date used by the period chart and filter: the case received date (client request), falling back to the result date */
+export const childDate = (c: ChildRecord) => c.receivedDate ?? c.resultDate ?? null;
 
 export function applyChildFilters(rows: ChildRecord[], f: Filters): ChildRecord[] {
   return rows.filter((c) => {
@@ -159,7 +159,8 @@ export function familyKpis(rows: FamilyRecord[], refDate = "") {
   const families = new Set(rows.filter((r) => r.service.includes("التحقق")).map((r) => r.family).filter(Boolean));
   const done = rows.filter((r) => isDone(r.status)).length;
   const booked = rows.filter((r) => r.resultDate);
-  const completed = booked.filter((r) => r.result);
+  // Every row with a result counts, with or without a result date, so the cards match the result details chart
+  const completed = rows.filter((r) => r.result);
   const groups = countBy(completed, (r) => resultGroup(r.result));
   const g = (name: ResultGroup) => groups.find((x) => x.name === name)?.value ?? 0;
   const suitable = g("مناسب");
@@ -173,7 +174,7 @@ export function familyKpis(rows: FamilyRecord[], refDate = "") {
     avgMembers: families.size ? Math.round((rows.length / families.size) * 10) / 10 : 0,
     booked: booked.length,
     completed: completed.length,
-    pendingResult: booked.length - completed.length,
+    pendingResult: rows.length - completed.length,
     done,
     pending: rows.length - done,
     completion: pct(done, rows.length),
@@ -232,13 +233,16 @@ export function periodKeyBy(granularity: Granularity): (iso: string) => string {
   return granularity === "year" ? (iso) => iso.slice(0, 4) : (iso) => iso.slice(0, 7);
 }
 
-/** Every month from January of the first year to December of the last year, so empty months still show */
+/** Every month from the first month with data to December of the last year, so empty months in between still show */
 export function fullYearMonths(keys: string[]): string[] {
   if (!keys.length) return [];
-  const years = keys.map((k) => Number(k.slice(0, 4)));
+  const sorted = [...keys].sort();
+  // Start at the first month with data (no empty months before it), end in December of the last year
+  const [y0, m0] = sorted[0].split("-").map(Number);
+  const yEnd = Number(sorted[sorted.length - 1].slice(0, 4));
   const out: string[] = [];
-  for (let y = Math.min(...years); y <= Math.max(...years); y++) {
-    for (let m = 1; m <= 12; m++) out.push(`${y}-${String(m).padStart(2, "0")}`);
+  for (let y = y0; y <= yEnd; y++) {
+    for (let m = y === y0 ? m0 : 1; m <= 12; m++) out.push(`${y}-${String(m).padStart(2, "0")}`);
   }
   return out;
 }
