@@ -40,6 +40,42 @@ import {
 
 const AGE_EDGES = [0, 18, 30, 40, 50, 200];
 const AGE_LABELS = ["أقل من 18", "18–29", "30–39", "40–49", "50+"];
+const TAT_EDGES = [0, 2, 4, 6, 8, 10000];
+const TAT_LABELS = ["0–1 يوم", "2–3 أيام", "4–5 أيام", "6–7 أيام", "+8 أيام"];
+const DURATION_EDGES = [0, 3, 7, 14, 30, 10000];
+const DURATION_LABELS = ["0–2 يوم", "3–6 أيام", "1–2 أسبوع", "2–4 أسابيع", "+شهر"];
+
+/** Bucket name of one value, same rule as bucket() */
+function bucketName(v: number, edges: number[], labels: string[]): string {
+  const i = edges.findIndex((e) => v < e);
+  return labels[i === -1 ? labels.length - 1 : Math.max(0, i - 1)];
+}
+
+/** Age group of one person, as in the age chart ("" when the age is unknown) */
+export function famAgeGroup(r: FamilyRecord, refDate: string): string {
+  const a = familyAges([r], refDate)[0];
+  return a === undefined ? "" : bucketName(a, AGE_EDGES, AGE_LABELS);
+}
+
+/** Lab-to-result bucket of one person, as in the duration chart ("" without both dates) */
+export function tatGroup(r: FamilyRecord): string {
+  if (!r.labDate || !r.resultDate) return "";
+  const d = daysBetween(r.labDate, r.resultDate);
+  return d < 0 ? "" : bucketName(d, TAT_EDGES, TAT_LABELS);
+}
+
+/** Received-to-result bucket of one child, as in the duration chart ("" without both dates) */
+export function kidDurationGroup(c: ChildRecord): string {
+  if (!c.receivedDate || !c.resultDate) return "";
+  const d = daysBetween(c.receivedDate, c.resultDate);
+  return d < 0 ? "" : bucketName(d, DURATION_EDGES, DURATION_LABELS);
+}
+
+/** Axis label of a date in the period charts */
+export function periodName(iso: string, granularity: Granularity): string {
+  const k = periodKeyBy(granularity)(iso);
+  return granularity === "month" ? periodLabel(k).replace(" ", "\n") : periodLabel(k);
+}
 
 /** Beneficiaries per period, split by group (result, test type...) */
 function periodStack<T>(
@@ -130,12 +166,7 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
   const ageBuckets = bucket(familyAges(filtered, refDate), AGE_EDGES, AGE_LABELS);
 
   // Age × program type: who benefits from which program
-  const ageOf = (r: FamilyRecord) => familyAges([r], refDate)[0];
-  const ageGroupOf = (r: FamilyRecord) => {
-    const a = ageOf(r);
-    if (a === undefined) return "";
-    return bucket([a], AGE_EDGES, AGE_LABELS).find((b) => b.value)?.name ?? "";
-  };
+  const ageGroupOf = (r: FamilyRecord) => famAgeGroup(r, refDate);
   const ageByProgram = stackedBar(
     AGE_LABELS,
     services.map((s, i) => ({
@@ -149,7 +180,7 @@ export function buildFamilyCharts(filtered: FamilyRecord[], refDate: string) {
     .filter((r) => r.labDate && r.resultDate)
     .map((r) => daysBetween(r.labDate!, r.resultDate!))
     .filter((d) => d >= 0);
-  const tatBuckets = bucket(tat, [0, 2, 4, 6, 8, 10000], ["0–1 يوم", "2–3 أيام", "4–5 أيام", "6–7 أيام", "+8 أيام"]);
+  const tatBuckets = bucket(tat, TAT_EDGES, TAT_LABELS);
 
   const famSizes = countBy(
     Object.values(
@@ -251,7 +282,7 @@ export function buildChildCharts(children: ChildRecord[], refDate: string) {
     cityService,
     cities: horizontalBar(countBy(children, (c) => c.city), PALETTE[1], 20),
     hospitals: horizontalBar(countBy(children, (c) => c.hospital), PALETTE[1], 22),
-    duration: columns(bucket(durations, [0, 3, 7, 14, 30, 10000], ["0–2 يوم", "3–6 أيام", "1–2 أسبوع", "2–4 أسابيع", "+شهر"]), PALETTE[1], "عدد الحالات"),
+    duration: columns(bucket(durations, DURATION_EDGES, DURATION_LABELS), PALETTE[1], "عدد الحالات"),
     period: period.option,
     periodYear: periodYear.option,
     periodHasData: period.hasData,

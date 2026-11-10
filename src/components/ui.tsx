@@ -46,6 +46,7 @@ export function KpiCard({
   tone = "purple",
   icon,
   progress,
+  onClick,
 }: {
   label: string;
   value: ReactNode;
@@ -53,10 +54,18 @@ export function KpiCard({
   tone?: Tone;
   icon: ReactNode;
   progress?: number;
+  onClick?: () => void;
 }) {
   const t = toneStyles[tone];
   return (
-    <div className="card relative flex h-full flex-col overflow-hidden p-4">
+    <div
+      className={`card relative flex h-full flex-col overflow-hidden p-4 ${onClick ? "cursor-pointer transition hover:border-refd-purple-300 hover:shadow-md" : ""}`}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onClick()) : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      title={onClick ? "اضغط لعرض الأسماء" : undefined}
+    >
       <div className="flex h-10 items-center justify-between gap-3">
         <p className="line-clamp-2 min-w-0 text-xs leading-snug font-medium text-muted">{label}</p>
         <span className={`grid size-10 shrink-0 place-items-center rounded-2xl ${t.bg} ${t.fg}`}>{icon}</span>

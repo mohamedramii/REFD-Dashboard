@@ -50,11 +50,13 @@ type Props = {
   option: EChartsOption;
   height?: number;
   onClickName?: (name: string) => void;
+  /** Clicked category and series (for stacked bars, e.g. region + program) */
+  onClickItem?: (item: { name: string; series: string }) => void;
   /** For printing: no animation, so the chart is complete at print time */
   still?: boolean;
 };
 
-export function Chart({ option, height = 300, onClickName, still = false }: Props) {
+export function Chart({ option, height = 300, onClickName, onClickItem, still = false }: Props) {
   // dir="ltr" because the page's RTL direction flips SVG text alignment inside ECharts and clips it.
   // Right-to-left display order is handled by the axis options themselves (inverse/position).
   return (
@@ -66,8 +68,14 @@ export function Chart({ option, height = 300, onClickName, still = false }: Prop
       lazyUpdate
       opts={{ renderer: "svg" }}
       onEvents={
-        onClickName
-          ? { click: (p: { name?: string }) => p.name && onClickName(p.name) }
+        onClickName || onClickItem
+          ? {
+              click: (p: { name?: string; seriesName?: string }) => {
+                if (!p.name) return;
+                onClickName?.(p.name);
+                onClickItem?.({ name: p.name, series: p.seriesName ?? "" });
+              },
+            }
           : undefined
       }
     />

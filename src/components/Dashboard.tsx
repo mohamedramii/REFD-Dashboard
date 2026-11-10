@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   applyChildFilters,
   applyFamilyFilters,
+  childDate,
   childKpis,
   completeness,
   emptyFilters,
@@ -12,6 +13,7 @@ import {
   type Filters,
   type Granularity,
   filtersToQuery,
+  isHealthy,
   label,
   PENDING_RESULT,
   resultGroup,
@@ -20,12 +22,13 @@ import {
 } from "@/lib/analytics";
 import type { ChildDateColumns } from "@/lib/types";
 import { Chart } from "./charts/Chart";
-import { buildChildCharts, buildFamilyCharts, statusChart } from "./charts/build";
+import { buildChildCharts, buildFamilyCharts, famAgeGroup, kidDurationGroup, periodName, statusChart, tatGroup } from "./charts/build";
 import { useDashboardData } from "./useDashboardData";
 import { Icons } from "./icons";
 import { ChartCard, ChartFilter, EmptyChart, KpiCard, MultiSelect } from "./ui";
 import { RecordsTable } from "./RecordsTable";
 import { QualityPanel } from "./QualityPanel";
+import { PeopleModal, type PeopleList } from "./PeopleModal";
 
 const TABS = [
   { id: "family", label: "لوحة الأسر" },
@@ -132,6 +135,13 @@ export function Dashboard() {
     setFamFilters((f) => ({ ...f, statuses: f.statuses.includes(value) ? f.statuses.filter((v) => v !== value) : [...f.statuses, value] }));
   const toggleKid = (key: "cities" | "services" | "results", value: string) =>
     setKidFilters((f) => ({ ...f, [key]: f[key].includes(value) ? f[key].filter((v) => v !== value) : [...f[key], value] }));
+
+  // Clicking any chart part or card lists the people behind that number (client request)
+  const [people, setPeople] = useState<PeopleList | null>(null);
+  const title = (...parts: string[]) => parts.filter(Boolean).map((p) => p.replace("\n", " ")).join(" · ");
+  const showFam = (t: string, rows: typeof fam, onFilter?: () => void) => setPeople({ kind: "family", title: t, rows, onFilter });
+  const showKid = (t: string, rows: typeof kids, onFilter?: () => void) => setPeople({ kind: "children", title: t, rows, onFilter });
+  const withResult = (r: { result: string }) => Boolean(r.result);
 
   const quality = useMemo(
     () =>
@@ -240,20 +250,21 @@ export function Dashboard() {
 
             {/* Hints only on the first card and the percentage cards (client request) */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={fk.families ? `${fk.families} أسرة` : undefined} icon={<Icons.clipboard />} />
+              <KpiCard label="عدد الأشخاص المفحوصين" value={fk.total} hint={fk.families ? `${fk.families} أسرة` : undefined} icon={<Icons.clipboard />} onClick={() => showFam("عدد الأشخاص المفحوصين", fam)} />
               <KpiCard
                 label="ظهور النتيجة"
                 value={fk.completed}
                 tone="purple"
                 icon={<Icons.check />}
+                onClick={() => showFam("ظهور النتيجة", fam.filter(withResult))}
               />
-              <KpiCard label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={fk.suitableRate} />
-              <KpiCard label="غير مناسب" value={fk.unsuitable} hint={`${fk.unsuitableRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={fk.unsuitableRate} />
-              <KpiCard label="بحاجة لمتابعة" value={fk.followUp} hint={`${fk.followUpRate}% من النتائج`} tone="warning" icon={<Icons.clock />} progress={fk.followUpRate} />
+              <KpiCard label="مناسب" value={fk.suitable} hint={`${fk.suitableRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={fk.suitableRate} onClick={() => showFam("مناسب", fam.filter((r) => r.result && resultGroup(r.result) === "مناسب"))} />
+              <KpiCard label="غير مناسب" value={fk.unsuitable} hint={`${fk.unsuitableRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={fk.unsuitableRate} onClick={() => showFam("غير مناسب", fam.filter((r) => r.result && resultGroup(r.result) === "غير مناسب"))} />
+              <KpiCard label="بحاجة لمتابعة" value={fk.followUp} hint={`${fk.followUpRate}% من النتائج`} tone="warning" icon={<Icons.clock />} progress={fk.followUpRate} onClick={() => showFam("بحاجة لمتابعة", fam.filter((r) => r.result && resultGroup(r.result) === "بحاجة لمتابعة"))} />
             </div>
 
             <ChartCard title="المواعيد المحجوزة حسب حالة الخدمة" action={famFilter("status", ["cities", "services", "results"])}>
-              <Chart option={statusChart(famRows("status"), famOptions.statuses)} height={280} onClickName={(n) => toggleFamStatus(n)} />
+              <Chart option={statusChart(famRows("status"), famOptions.statuses)} height={280} onClickName={(n) => showFam(n, famRows("status").filter((r) => label(r.status) === n), () => toggleFamStatus(n))} />
             </ChartCard>
 
             <ChartCard
@@ -266,7 +277,13 @@ export function Dashboard() {
               }
             >
               {famChart("period").periodHasData ? (
-                <Chart option={granularity === "year" ? famChart("period").periodYear : famChart("period").period} height={300} />
+                <Chart
+                  option={granularity === "year" ? famChart("period").periodYear : famChart("period").period}
+                  height={300}
+                  onClickItem={({ name, series }) =>
+                    showFam(title(name, series), famRows("period").filter((r) => r.labDate && periodName(r.labDate, granularity) === name && shortService(r.service) === series))
+                  }
+                />
               ) : (
                 <EmptyChart text="مافيش مواعيد في الفترة دي" />
               )}
@@ -274,21 +291,33 @@ export function Dashboard() {
 
             <div className="grid gap-5 lg:grid-cols-5">
               <ChartCard title="نوع البرنامج" className="lg:col-span-2" action={famFilter("services", ["cities", "services", "results"])}>
-                <Chart option={famChart("services").services} height={300} onClickName={(n) => toggleFam("services", n)} />
+                <Chart option={famChart("services").services} height={300} onClickName={(n) => showFam(n, famRows("services").filter((r) => label(shortService(r.service)) === n), () => toggleFam("services", n))} />
               </ChartCard>
               <ChartCard title="تفاصيل النتائج" className="lg:col-span-3" action={famFilter("resultDetail", ["cities", "services", "results"])}>
-                <Chart option={famChart("resultDetail").resultDetail} height={300} />
+                <Chart option={famChart("resultDetail").resultDetail} height={300} onClickName={(n) => showFam(n, famRows("resultDetail").filter((r) => r.result === n), () => toggleFam("results", n))} />
               </ChartCard>
             </div>
             <ChartCard title="النطاق الجغرافي حسب نوع البرنامج" action={famFilter("byCityStack", ["cities", "services"])}>
-              <Chart option={famChart("byCityStack").byCityStack} height={340} onClickName={(n) => toggleFam("cities", n)} />
+              <Chart
+                option={famChart("byCityStack").byCityStack}
+                height={340}
+                onClickItem={({ name, series }) =>
+                  showFam(title(name, series), famRows("byCityStack").filter((r) => label(r.city) === name && shortService(r.service) === series), () => toggleFam("cities", name))
+                }
+              />
             </ChartCard>
             <ChartCard title="الفئات العمرية حسب نوع البرنامج" action={famFilter("ages", ["cities", "services", "results"])}>
-              <Chart option={famChart("ages").ageByProgram} height={320} />
+              <Chart
+                option={famChart("ages").ageByProgram}
+                height={320}
+                onClickItem={({ name, series }) =>
+                  showFam(title(name, series), famRows("ages").filter((r) => famAgeGroup(r, refDate) === name && shortService(r.service) === series))
+                }
+              />
             </ChartCard>
             <ChartCard title="المدة من الفحص حتى ظهور النتيجة" subtitle="بالأيام" action={famFilter("tat", ["cities", "services", "results"])}>
               {famChart("tat").hasTat ? (
-                <Chart option={famChart("tat").tat} height={280} />
+                <Chart option={famChart("tat").tat} height={280} onClickName={(n) => showFam(title("المدة", n), famRows("tat").filter((r) => tatGroup(r) === n))} />
               ) : (
                 <EmptyChart text="محتاج تعبئة «تاريخ الفحوصات المخبرية» و«تاريخ النتيجة» في شيت الأسر" height={280} />
               )}
@@ -325,24 +354,36 @@ export function Dashboard() {
             />
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-              <KpiCard label="عدد الفحوصات" value={ck.total} icon={<Icons.clipboard />} />
-              <KpiCard label="المواعيد المحجوزة" value={ck.booked} tone="purple" icon={<Icons.calendar />} />
-              <KpiCard label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} />
-              <KpiCard label="غير سليم" value={ck.unhealthy} hint={`${ck.unhealthyRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={ck.unhealthyRate} />
-              <KpiCard label="من الاستلام للنتيجة" value={ck.avgDuration !== null ? `${ck.avgDuration} يوم` : "—"} hint={ck.avgDuration !== null ? "متوسط بالأيام" : undefined} tone="warning" icon={<Icons.clock />} />
+              <KpiCard label="عدد الفحوصات" value={ck.total} icon={<Icons.clipboard />} onClick={() => showKid("عدد الفحوصات", kids)} />
+              <KpiCard label="المواعيد المحجوزة" value={ck.booked} tone="purple" icon={<Icons.calendar />} onClick={() => showKid("المواعيد المحجوزة", kids.filter((c) => c.service))} />
+              <KpiCard label="سليم" value={ck.healthy} hint={`${ck.healthyRate}% من النتائج`} tone="success" icon={<Icons.heart />} progress={ck.healthyRate} onClick={() => showKid("سليم", kids.filter((c) => c.result && isHealthy(c.result)))} />
+              <KpiCard label="غير سليم" value={ck.unhealthy} hint={`${ck.unhealthyRate}% من النتائج`} tone="danger" icon={<Icons.alert />} progress={ck.unhealthyRate} onClick={() => showKid("غير سليم", kids.filter((c) => c.result && !isHealthy(c.result)))} />
+              <KpiCard label="من الاستلام للنتيجة" value={ck.avgDuration !== null ? `${ck.avgDuration} يوم` : "—"} hint={ck.avgDuration !== null ? "متوسط بالأيام" : undefined} tone="warning" icon={<Icons.clock />} onClick={() => showKid("من الاستلام للنتيجة", kids.filter((c) => kidDurationGroup(c)))} />
             </div>
 
             <div className="grid gap-5 lg:grid-cols-5">
               <ChartCard title="نوع البرنامج" className="lg:col-span-2" action={kidFilter("services", ["cities", "services", "results"])}>
-                <Chart option={kidChart("services").services} height={300} onClickName={(n) => toggleKid("services", n)} />
+                <Chart option={kidChart("services").services} height={300} onClickName={(n) => showKid(n, kidRows("services").filter((c) => label(c.service) === n), () => toggleKid("services", n))} />
               </ChartCard>
               <ChartCard title="النتيجة حسب نوع البرنامج" className="lg:col-span-3" action={kidFilter("serviceResult", ["cities", "services", "results"])}>
-                <Chart option={kidChart("serviceResult").serviceResult} height={300} />
+                <Chart
+                  option={kidChart("serviceResult").serviceResult}
+                  height={300}
+                  onClickItem={({ name, series }) =>
+                    showKid(title(name, series), kidRows("serviceResult").filter((c) => label(c.service) === name && (c.result || PENDING_RESULT) === series))
+                  }
+                />
               </ChartCard>
             </div>
 
             <ChartCard title="النطاق الجغرافي لكل خدمة" action={kidFilter("cities", ["cities", "services", "results"])}>
-              <Chart option={kidChart("cities").cityService} height={320} onClickName={(n) => toggleKid("cities", n)} />
+              <Chart
+                option={kidChart("cities").cityService}
+                height={320}
+                onClickItem={({ name, series }) =>
+                  showKid(title(name, series), kidRows("cities").filter((c) => label(c.city) === name && label(c.service) === series), () => toggleKid("cities", name))
+                }
+              />
             </ChartCard>
 
             <ChartCard
@@ -355,7 +396,16 @@ export function Dashboard() {
               }
             >
               {kidChart("period").periodHasData ? (
-                <Chart option={kidGranularity === "year" ? kidChart("period").periodYear : kidChart("period").period} height={300} />
+                <Chart
+                  option={kidGranularity === "year" ? kidChart("period").periodYear : kidChart("period").period}
+                  height={300}
+                  onClickItem={({ name, series }) =>
+                    showKid(title(name, series), kidRows("period").filter((c) => {
+                      const d = childDate(c);
+                      return d && periodName(d, kidGranularity) === name && label(c.service) === series;
+                    }))
+                  }
+                />
               ) : (
                 <EmptyChart text={periodHint(data.childColumns)} />
               )}
@@ -364,7 +414,7 @@ export function Dashboard() {
             <div>
               <ChartCard title="المدة من الاستلام حتى ظهور النتيجة" subtitle="بالأيام" action={kidFilter("duration", ["cities", "services", "results"])}>
                 {ck.hasDurationData ? (
-                  <Chart option={kidChart("duration").duration} height={260} />
+                  <Chart option={kidChart("duration").duration} height={260} onClickName={(n) => showKid(title("المدة", n), kidRows("duration").filter((c) => kidDurationGroup(c) === n))} />
                 ) : (
                   <EmptyChart text={durationHint(data.childColumns)} />
                 )}
@@ -390,6 +440,8 @@ export function Dashboard() {
             </div>
           </>
         )}
+
+        {people && <PeopleModal list={people} onClose={() => setPeople(null)} />}
 
         {data && tab === "quality" && <QualityPanel issues={data.issues} completeness={quality} />}
         {data && tab === "records" && <RecordsTable family={family} childRecords={children} />}
