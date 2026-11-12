@@ -42,8 +42,8 @@ export function filtersFromQuery(p: URLSearchParams): Filters {
   };
 }
 
-// Statuses now include "contacted" and "appointment scheduled", so only rows whose reports were uploaded count as done
-export const isDone = (status: string) => status.includes("رفع التقارير") || status.trim() === "تمت";
+// Only rows whose reports were uploaded count as done ("waiting to upload reports" does not)
+export const isDone = (status: string) => (status.includes("رفع التقارير") && !status.includes("انتظار")) || status.trim() === "تمت";
 export const isHealthy = (result: string) => result === "سليم";
 
 export const PENDING_RESULT = "بانتظار النتيجة";

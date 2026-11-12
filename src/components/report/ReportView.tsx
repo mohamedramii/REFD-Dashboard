@@ -71,7 +71,7 @@ export function ReportView() {
   }, [family]);
 
   const filterText = [
-    filters.cities.length && `المدينة: ${filters.cities.join("، ")}`,
+    filters.cities.length && `المنطقة: ${filters.cities.join("، ")}`,
     filters.services.length && `الخدمة: ${filters.services.join("، ")}`,
     filters.statuses.length && `الحالة: ${filters.statuses.join("، ")}`,
     filters.results.length && `النتيجة: ${filters.results.join("، ")}`,
@@ -322,7 +322,7 @@ export function ReportView() {
           <table className="report-table w-full text-[8.3pt]">
             <thead>
               <tr className="bg-refd-purple text-white">
-                {["الأسرة", "الاسم", "الخدمة", "المدينة", "الحي", "الحالة", "النتيجة", "الفحوصات", "النتيجة في"].map((h, i, arr) => (
+                {["الأسرة", "الاسم", "الخدمة", "المنطقة", "الحي", "الحالة", "النتيجة", "الفحوصات", "النتيجة في"].map((h, i, arr) => (
                   <th
                     key={h + i}
                     className={`px-2 py-1.5 text-start font-medium ${i === 0 ? "rounded-tr-lg" : ""} ${i === arr.length - 1 ? "rounded-tl-lg" : ""}`}

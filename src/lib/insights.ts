@@ -13,7 +13,7 @@ export function buildInsights(family: FamilyRecord[], children: ChildRecord[], i
   if (topCity && fk.total) {
     out.push({
       tone: "info",
-      text: `${topCity.name} هي الأعلى في عدد الفحوصات بـ ${topCity.value} فحص (${pct(topCity.value, fk.total)}% من الإجمالي) موزعين على ${fk.cities} مدن.`,
+      text: `${topCity.name} هي الأعلى في عدد الفحوصات بـ ${topCity.value} فحص (${pct(topCity.value, fk.total)}% من الإجمالي) موزعين على ${fk.cities} مناطق.`,
     });
   }
 

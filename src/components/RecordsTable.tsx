@@ -36,7 +36,7 @@ export function RecordsTable({ family, childRecords: children }: { family: Famil
         </div>
         <label className="flex h-10 min-w-60 flex-1 items-center gap-2 rounded-xl border border-line px-3 text-muted focus-within:border-refd-purple">
           <Icons.search />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم، المدينة، المستشفى…" className="w-full bg-transparent text-sm text-ink outline-none" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم، المنطقة، المستشفى…" className="w-full bg-transparent text-sm text-ink outline-none" />
         </label>
         <span className="text-xs text-muted">{rows.length} سجل</span>
       </div>
@@ -45,7 +45,7 @@ export function RecordsTable({ family, childRecords: children }: { family: Famil
           <thead className="bg-refd-purple-50/70 text-xs text-muted">
             {mode === "family" ? (
               <tr>
-                {["الأسرة", "الاسم", "الخدمة", "المدينة", "الحي", "الحالة", "النتيجة", "تاريخ الفحوصات", "تاريخ النتيجة"].map((h) => (
+                {["الأسرة", "الاسم", "الخدمة", "المنطقة", "الحي", "الحالة", "النتيجة", "تاريخ الفحوصات", "تاريخ النتيجة"].map((h) => (
                   <th key={h} className="px-4 py-3 text-start font-medium">{h}</th>
                 ))}
               </tr>
